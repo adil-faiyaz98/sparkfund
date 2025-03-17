@@ -18,8 +18,6 @@ This project sets up a Kubernetes-based microservices architecture with AI/ML pi
 ### Microservices Architecture
 
 - **Language**: Go (GIN framework)
-- **Total Services**: Microservices
-- **Endpoints per Service**: ~5 endpoints each
 - **Database** : PostgreSQL
 - **Automated Testing** - Automated with Ginkgo and Gomega
 - **CI/CD**: GitHub Runners (self-hosted)
