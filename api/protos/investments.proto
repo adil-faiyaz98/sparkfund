@@ -1,0 +1,235 @@
+syntax = "proto3";
+package investments;
+
+option go_package = "github.com/adil-faiyaz98/money-pulse/api/investments";
+
+service InvestmentService {
+  // Core Investment Management
+  rpc CreateInvestment(CreateInvestmentRequest) returns (InvestmentResponse) {}
+  rpc GetInvestment(GetInvestmentRequest) returns (InvestmentResponse) {}
+  rpc UpdateInvestment(UpdateInvestmentRequest) returns (InvestmentResponse) {}
+  rpc DeleteInvestment(DeleteInvestmentRequest) returns (DeleteInvestmentResponse) {}
+  rpc ListInvestments(ListInvestmentsRequest) returns (ListInvestmentsResponse) {}
+  
+  // Portfolio Management
+  rpc GetPortfolio(GetPortfolioRequest) returns (PortfolioResponse) {}
+  rpc GetPortfolioPerformance(GetPortfolioPerformanceRequest) returns (PortfolioPerformanceResponse) {}
+  
+  // Investment Orders
+  rpc PlaceOrder(PlaceOrderRequest) returns (OrderResponse) {}
+  rpc GetOrder(GetOrderRequest) returns (OrderResponse) {}
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse) {}
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse) {}
+  
+  // Market Data
+  rpc GetMarketData(GetMarketDataRequest) returns (MarketDataResponse) {}
+  rpc GetInvestmentHistory(GetInvestmentHistoryRequest) returns (InvestmentHistoryResponse) {}
+}
+
+// Core Investment Types
+message Investment {
+  string id = 1;
+  string user_id = 2;
+  string symbol = 3;
+  string instrument_type = 4; // stock, bond, mutual_fund, etf, crypto, etc.
+  double quantity = 5;
+  double average_price = 6;
+  double current_price = 7;
+  string currency = 8;
+  double total_cost = 9;
+  double current_value = 10;
+  double profit_loss = 11;
+  double profit_loss_percentage = 12;
+  string purchase_date = 13;
+  string created_at = 14;
+  string updated_at = 15;
+}
+
+message CreateInvestmentRequest {
+  string user_id = 1;
+  string symbol = 2;
+  string instrument_type = 3;
+  double quantity = 4;
+  double price = 5;
+  string currency = 6;
+  string purchase_date = 7;
+}
+
+message GetInvestmentRequest {
+  string id = 1;
+}
+
+message UpdateInvestmentRequest {
+  string id = 1;
+  double quantity = 2;
+  double price = 3;
+  string purchase_date = 4;
+}
+
+message DeleteInvestmentRequest {
+  string id = 1;
+}
+
+message DeleteInvestmentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message InvestmentResponse {
+  Investment investment = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message ListInvestmentsRequest {
+  string user_id = 1;
+  string instrument_type = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListInvestmentsResponse {
+  repeated Investment investments = 1;
+  int32 total = 2;
+  double total_value = 3;
+  double total_profit_loss = 4;
+}
+
+// Portfolio Types
+message AssetAllocation {
+  string type = 1;
+  double percentage = 2;
+  double value = 3;
+}
+
+message GetPortfolioRequest {
+  string user_id = 1;
+}
+
+message PortfolioResponse {
+  string user_id = 1;
+  repeated Investment investments = 2;
+  double total_value = 3;
+  double total_cost = 4;
+  double total_profit_loss = 5;
+  double total_profit_loss_percentage = 6;
+  repeated AssetAllocation asset_allocation = 7;
+}
+
+message GetPortfolioPerformanceRequest {
+  string user_id = 1;
+  string period = 2; // daily, weekly, monthly, yearly, all
+  string from_date = 3;
+  string to_date = 4;
+}
+
+message PerformancePoint {
+  string date = 1;
+  double value = 2;
+  double change_percentage = 3;
+}
+
+message PortfolioPerformanceResponse {
+  repeated PerformancePoint performance_points = 1;
+  double total_return = 2;
+  double annualized_return = 3;
+  double volatility = 4;
+  double sharp_ratio = 5;
+  double max_drawdown = 6;
+}
+
+// Order Types
+message Order {
+  string id = 1;
+  string user_id = 2;
+  string symbol = 3;
+  string order_type = 4; // market, limit, stop, stop_limit
+  string side = 5; // buy, sell
+  double quantity = 6;
+  double price = 7;
+  double executed_price = 8;
+  string status = 9; // pending, executed, canceled, expired
+  string created_at = 10;
+  string executed_at = 11;
+}
+
+message PlaceOrderRequest {
+  string user_id = 1;
+  string symbol = 2;
+  string order_type = 3;
+  string side = 4;
+  double quantity = 5;
+  double price = 6;
+}
+
+message OrderResponse {
+  Order order = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+}
+
+message CancelOrderResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListOrdersRequest {
+  string user_id = 1;
+  string status = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+  int32 total = 2;
+}
+
+// Market Data Types
+message MarketQuote {
+  string symbol = 1;
+  double price = 2;
+  double change = 3;
+  double change_percentage = 4;
+  double open = 5;
+  double high = 6;
+  double low = 7;
+  double volume = 8;
+  string timestamp = 9;
+}
+
+message GetMarketDataRequest {
+  repeated string symbols = 1;
+}
+
+message MarketDataResponse {
+  repeated MarketQuote quotes = 1;
+}
+
+message HistoricalDataPoint {
+  string date = 1;
+  double open = 2;
+  double high = 3;
+  double low = 4;
+  double close = 5;
+  double volume = 6;
+}
+
+message GetInvestmentHistoryRequest {
+  string symbol = 1;
+  string period = 2; // 1d, 1w, 1m, 3m, 6m, 1y, 5y, max
+  string interval = 3; // 1m, 5m, 15m, 30m, 1h, 1d, 1w, 1mo
+}
+
+message InvestmentHistoryResponse {
+  string symbol = 1;
+  repeated HistoricalDataPoint data_points = 2;
+}

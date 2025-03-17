@@ -1,0 +1,113 @@
+syntax = "proto3";
+package reports;
+
+option go_package = "github.com/adil-faiyaz98/money-pulse/api/reports";
+
+service ReportService {
+  rpc GenerateAccountSummary(AccountSummaryRequest) returns (AccountSummaryResponse) {}
+  rpc GenerateIncomeExpenseReport(IncomeExpenseReportRequest) returns (IncomeExpenseReportResponse) {}
+  rpc GenerateLoanSummary(LoanSummaryRequest) returns (LoanSummaryResponse) {}
+  rpc GenerateUserActivityReport(UserActivityReportRequest) returns (UserActivityReportResponse) {}
+  rpc GetTransactionAnalytics(TransactionAnalyticsRequest) returns (TransactionAnalyticsResponse) {}
+}
+
+message AccountSummaryRequest {
+  string user_id = 1;
+}
+
+message AccountSummary {
+  string account_id = 1;
+  string account_type = 2;
+  string account_number = 3;
+  double current_balance = 4;
+  double average_balance = 5;
+  string currency = 6;
+  int32 transaction_count = 7;
+}
+
+message AccountSummaryResponse {
+  repeated AccountSummary accounts = 1;
+  double total_balance = 2;
+  int32 total_accounts = 3;
+}
+
+message IncomeExpenseReportRequest {
+  string user_id = 1;
+  string from_date = 2;
+  string to_date = 3;
+  string frequency = 4; // daily, weekly, monthly
+}
+
+message CategoryAmount {
+  string category = 1;
+  double amount = 2;
+}
+
+message TimePeriodSummary {
+  string period = 1;
+  double income = 2;
+  double expense = 3;
+  double net = 4;
+  repeated CategoryAmount income_by_category = 5;
+  repeated CategoryAmount expense_by_category = 6;
+}
+
+message IncomeExpenseReportResponse {
+  repeated TimePeriodSummary summaries = 1;
+  double total_income = 2;
+  double total_expense = 3;
+  double total_net = 4;
+}
+
+message LoanSummaryRequest {
+  string user_id = 1;
+}
+
+message LoanSummary {
+  string loan_id = 1;
+  double principal_amount = 2;
+  double outstanding_balance = 3;
+  string next_payment_date = 4;
+  double next_payment_amount = 5;
+  int32 remaining_installments = 6;
+  string status = 7;
+}
+
+message LoanSummaryResponse {
+  repeated LoanSummary loans = 1;
+  double total_outstanding = 2;
+}
+
+message UserActivityReportRequest {
+  string user_id = 1;
+  string from_date = 2;
+  string to_date = 3;
+}
+
+message ActivityEntry {
+  string timestamp = 1;
+  string activity_type = 2;
+  string details = 3;
+}
+
+message UserActivityReportResponse {
+  repeated ActivityEntry activities = 1;
+  int32 login_count = 2;
+  int32 transaction_count = 3;
+  int32 total_activities = 4;
+}
+
+message TransactionAnalyticsRequest {
+  string user_id = 1;
+  string from_date = 2;
+  string to_date = 3;
+}
+
+message TransactionAnalyticsResponse {
+  repeated CategoryAmount spending_by_category = 1;
+  repeated TimePeriodSummary spending_over_time = 2;
+  repeated string top_merchants = 3;
+  string highest_spending_day = 4;
+  string lowest_spending_day = 5;
+  double unusual_activity_score = 6;
+}

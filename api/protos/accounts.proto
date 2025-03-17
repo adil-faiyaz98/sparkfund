@@ -1,0 +1,71 @@
+syntax = "proto3";
+package accounts;
+
+option go_package = "github.com/adil-faiyaz98/money-pulse/api/accounts";
+
+service AccountService {
+  rpc CreateAccount(CreateAccountRequest) returns (AccountResponse) {}
+  rpc GetAccount(GetAccountRequest) returns (AccountResponse) {}
+  rpc UpdateAccount(UpdateAccountRequest) returns (AccountResponse) {}
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse) {}
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse) {}
+  rpc GetAccountBalance(GetAccountRequest) returns (AccountBalanceResponse) {}
+}
+
+message Account {
+  string id = 1;
+  string user_id = 2;
+  string account_number = 3;
+  string account_type = 4;
+  double balance = 5;
+  string currency = 6;
+  bool is_active = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message CreateAccountRequest {
+  string user_id = 1;
+  string account_type = 2;
+  string currency = 3;
+  double initial_deposit = 4;
+}
+
+message GetAccountRequest {
+  string id = 1;
+}
+
+message UpdateAccountRequest {
+  string id = 1;
+  bool is_active = 2;
+}
+
+message DeleteAccountRequest {
+  string id = 1;
+}
+
+message DeleteAccountResponse {
+  bool success = 1;
+}
+
+message AccountResponse {
+  Account account = 1;
+}
+
+message AccountBalanceResponse {
+  string account_id = 1;
+  double balance = 2;
+  string currency = 3;
+  string as_of = 4;
+}
+
+message ListAccountsRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+  int32 total = 2;
+}
