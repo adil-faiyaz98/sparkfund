@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: money-pulse-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgrespassword
+      - POSTGRES_DB=money_pulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - money-pulse-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  accounts-service:
+    build:
+      context: ./services/accounts-service
+      dockerfile: Dockerfile
+    container_name: money-pulse-accounts
+    environment:
+      - DATABASE_URL=postgres://postgres:postgrespassword@postgres:5432/money_pulse?sslmode=disable
+      - HTTP_PORT=8080
+      - GRPC_PORT=50051
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=development
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - money-pulse-network
+
+  # Other services would be defined here similarly
+  # users-service, transactions-service, etc.
+
+networks:
+  money-pulse-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
