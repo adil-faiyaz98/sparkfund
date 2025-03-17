@@ -1,4 +1,5 @@
 # AegisFinance
+
 Kubernetes-Based Microservices with AI/ML & Big Data
 
 ## Overview
@@ -8,12 +9,14 @@ This project sets up a Kubernetes-based microservices architecture with AI/ML pi
 ## Tech Stack
 
 ### Cloud Services
+
 - **AWS Elastic Kubernetes Service**: Managed Kubernetes cluster
 - **Google Cloud Run**: Serverless API hosting (optional)
 - **Containerization**: Docker
-- **Terraform**: Infrastructure as Code (IaC) & Kubernetes Manifests to deploy microservices to AWS EKS 
+- **Terraform**: Infrastructure as Code (IaC) & Kubernetes Manifests to deploy microservices to AWS EKS
 
 ### Microservices Architecture
+
 - **Language**: Go (GIN framework)
 - **Total Services**: Microservices
 - **Endpoints per Service**: ~5 endpoints each
@@ -21,13 +24,26 @@ This project sets up a Kubernetes-based microservices architecture with AI/ML pi
 - **Automated Testing** - Automated with Ginkgo and Gomega
 - **CI/CD**: GitHub Runners (self-hosted)
 
-
 ### Data & AI/ML
+
 - **Big Data Processing**: Google BigQuery for Analytics, Data Warehousing, and Machine Learning
 - **AI Models**: Fraud detection, anomaly detection, credit card recommendations
-- **AI Model Training**: Training on Jupyter Notebook, having GPU/CPU instances on AWS SageMaker 
+- **AI Model Training**: Training on Jupyter Notebook, having GPU/CPU instances on AWS SageMaker
 - **AI Model Deployment**: Hosted on AWS SageMaker Endpoint for real-time inference, AWS Lambda, or Vertex AI
 - **ETL Processing and Data Pipelines**: AWS Glue for automated data processing or Kubernetes CronJobs
+
+### Monitoring & Logging
+
+- **Prometheus**: Monitoring and alerting system
+- **Grafana**: Visualization and monitoring dashboard
+- **ELK Stack**: Elasticsearch, Logstash, and Kibana for logging and monitoring
+- **Jaeger**: Distributed tracing system
+
+### Load Balancing & Security
+
+- **[Option1]NGINX** - Will be used as a reverse proxy and load balancer as a standalone service in Kubernetes. - It will also be used to manage SSL/TLS certificates for secure communication. - NGINX will be configured to handle API rate limiting, caching, and request throttling and request logging - It will also be used for security ( JWT validation ) - It will be used to route requests to the appropriate microservice based on the URL path.
+
+- **[Option2]Kubernetes Ingress Controller** - Ingress manages external requests to the services in the cluster dynamically. It allows you to configure routing rules, SSL termination, and load balancing. - It is more native to Kubernetes and integrates with cert-manager for HTTPS. - It is more scalable and powerful than NGINX and integrates better with cloud-native load balancing.
 
 ## Setup Instructions
 
@@ -96,10 +112,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v2
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
-    - name: Apply Terraform
-      run: terraform apply -auto-approve
+      - name: Checkout Code
+        uses: actions/checkout@v2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+      - name: Apply Terraform
+        run: terraform apply -auto-approve
 ```
