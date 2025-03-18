@@ -2,93 +2,167 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 env:
-  DOCKER_REGISTRY: ghcr.io
-  DOCKER_USERNAME: ${{ github.actor }}
-  DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+  AWS_REGION: us-west-2
+  ECR_REPOSITORY: moneypulse
+  EKS_CLUSTER_NAME: moneypulse-cluster
 
 jobs:
   test:
-    name: Test
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+      
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.21
-
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Get dependencies
-        run: go mod download
-
-      - name: Test
-        run: go test -v ./...
+          go-version: '1.21'
+          
+      - name: Run tests
+        run: go test ./... -v
+        
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
 
   build-and-push:
-    name: Build and Push
     needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [accounts-service, users-service, transactions-service]
+        service: [accounts, users, transactions, investments, loans]
     steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
-        with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ env.DOCKER_USERNAME }}
-          password: ${{ env.DOCKER_PASSWORD }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v2
-        with:
-          context: ./services/${{ matrix.service }}
-          push: true
-          tags: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/money-pulse/${{ matrix.service }}:latest,${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/money-pulse/${{ matrix.service }}:${{ github.sha }}
-
-  deploy:
-    name: Deploy to EKS
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v2
-
+      - uses: actions/checkout@v3
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
-
-      - name: Update kubeconfig
-        run: aws eks update-kubeconfig --name money-pulse-cluster --region us-west-2
-
-      - name: Deploy to EKS
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Update image tags in deployment files
-          for service in accounts-service users-service transactions-service; do
-            sed -i "s|\${DOCKER_REGISTRY}/money-pulse/$service:latest|${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/money-pulse/$service:${{ github.sha }}|g" k8s/$service.yaml
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY/${{ matrix.service }}-service:$IMAGE_TAG -f services/${{ matrix.service }}-service/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY/${{ matrix.service }}-service:$IMAGE_TAG
+
+  deploy-infrastructure:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        
+      - name: Terraform Init
+        run: |
+          cd terraform
+          terraform init
+          
+      - name: Terraform Plan
+        run: |
+          cd terraform
+          terraform plan -out=tfplan
+          
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd terraform
+          terraform apply -auto-approve tfplan
+
+  deploy-applications:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+        
+      - name: Deploy Helm charts
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add elastic https://helm.elastic.co
+          helm repo update
+          
+          # Install monitoring stack
+          helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+            --namespace monitoring --create-namespace
+          
+          # Install ELK stack
+          helm upgrade --install elasticsearch elastic/elasticsearch \
+            --namespace logging --create-namespace
+          helm upgrade --install kibana elastic/kibana \
+            --namespace logging
+          helm upgrade --install filebeat elastic/filebeat \
+            --namespace logging
+          
+          # Install application services
+          for service in accounts users transactions investments loans; do
+            helm upgrade --install $service ./helm/$service \
+              --namespace money-pulse --create-namespace \
+              --set image.tag=${{ github.sha }}
           done
 
-          # Apply Kubernetes manifests
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/postgres.yaml
-          kubectl apply -f k8s/accounts-service.yaml
-          kubectl apply -f k8s/users-service.yaml
-          kubectl apply -f k8s/transactions-service.yaml
-          kubectl apply -f k8s/ingress.yaml
-          kubectl apply -f k8s/hpa.yaml
+  deploy-ml-pipeline:
+    needs: deploy-applications
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          pip install sagemaker boto3 pandas scikit-learn
+          
+      - name: Deploy ML models to SageMaker
+        run: |
+          python ml/deploy_models.py
+          
+      - name: Configure Glue jobs
+        run: |
+          aws glue create-job --name data-preprocessing \
+            --role arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GlueServiceRole \
+            --command Name=glueetl,ScriptLocation=s3://moneypulse-ml/glue/preprocess.py \
+            --default-arguments '{
+              "--enable-continuous-cloudwatch-log": "true",
+              "--enable-metrics": "true"
+            }'

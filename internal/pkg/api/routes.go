@@ -3,7 +3,7 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/your-username/money-pulse/internal/pkg/middleware"
+	"github.com/adilm/money-pulse/internal/pkg/middleware"
 )
 
 // SetupRouter configures the API routes
