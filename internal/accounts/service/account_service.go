@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"your-project/internal/accounts"
+	"github.com/adil-faiyaz98/structgen/internal/accounts"
 
 	"github.com/google/uuid"
 )

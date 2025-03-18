@@ -1,13 +1,13 @@
-version: "3.8"
+version: '3.8'
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:14-alpine
     container_name: money-pulse-postgres
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgrespassword
-      - POSTGRES_DB=money_pulse
+      POSTGRES_USER: moneypulse
+      POSTGRES_PASSWORD: moneypulse
+      POSTGRES_DB: moneypulse
     ports:
       - "5432:5432"
     volumes:
@@ -15,37 +15,134 @@ services:
     networks:
       - money-pulse-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U moneypulse"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  accounts-service:
+  users-service:
     build:
-      context: ./services/accounts-service
-      dockerfile: Dockerfile
-    container_name: money-pulse-accounts
+      context: .
+      dockerfile: internal/users/Dockerfile
+    container_name: money-pulse-users
     environment:
-      - DATABASE_URL=postgres://postgres:postgrespassword@postgres:5432/money_pulse?sslmode=disable
-      - HTTP_PORT=8080
-      - GRPC_PORT=50051
-      - LOG_LEVEL=debug
-      - ENVIRONMENT=development
+      - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
+      - PORT=8080
     ports:
-      - "8080:8080"
-      - "50051:50051"
+      - "8081:8080"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - money-pulse-network
 
-  # Other services would be defined here similarly
-  # users-service, transactions-service, etc.
+  accounts-service:
+    build:
+      context: .
+      dockerfile: internal/accounts/Dockerfile
+    container_name: money-pulse-accounts
+    environment:
+      - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
+      - PORT=8080
+    ports:
+      - "8082:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      users-service:
+        condition: service_started
+    networks:
+      - money-pulse-network
+
+  transactions-service:
+    build:
+      context: .
+      dockerfile: internal/transactions/Dockerfile
+    container_name: money-pulse-transactions
+    environment:
+      - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
+      - PORT=8080
+    ports:
+      - "8083:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      users-service:
+        condition: service_started
+      accounts-service:
+        condition: service_started
+    networks:
+      - money-pulse-network
+
+  investments-service:
+    build:
+      context: .
+      dockerfile: internal/investments/Dockerfile
+    container_name: money-pulse-investments
+    environment:
+      - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
+      - PORT=8080
+    ports:
+      - "8084:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      users-service:
+        condition: service_started
+      accounts-service:
+        condition: service_started
+    networks:
+      - money-pulse-network
+
+  loans-service:
+    build:
+      context: .
+      dockerfile: internal/loans/Dockerfile
+    container_name: money-pulse-loans
+    environment:
+      - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
+      - PORT=8080
+    ports:
+      - "8085:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      users-service:
+        condition: service_started
+      accounts-service:
+        condition: service_started
+    networks:
+      - money-pulse-network
+
+  reports-service:
+    build:
+      context: .
+      dockerfile: internal/reports/Dockerfile
+    container_name: money-pulse-reports
+    environment:
+      - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
+      - PORT=8080
+    ports:
+      - "8086:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      users-service:
+        condition: service_started
+      accounts-service:
+        condition: service_started
+      transactions-service:
+        condition: service_started
+      investments-service:
+        condition: service_started
+      loans-service:
+        condition: service_started
+    networks:
+      - money-pulse-network
+
+volumes:
+  postgres_data:
 
 networks:
   money-pulse-network:
     driver: bridge
-
-volumes:
-  postgres_data:
