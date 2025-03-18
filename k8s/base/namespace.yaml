@@ -3,5 +3,5 @@ kind: Namespace
 metadata:
   name: money-pulse
   labels:
-    app: money-pulse
-    environment: dev
+    name: money-pulse
+    environment: base

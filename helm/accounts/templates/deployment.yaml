@@ -1,61 +1,58 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "accounts-service.fullname" . }}
+  name: {{ include "accounts.fullname" . }}
   labels:
-    {{- include "accounts-service.labels" . | nindent 4 }}
+    {{- include "accounts.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "accounts-service.selectorLabels" . | nindent 6 }}
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 1
-      maxSurge: 1
+      {{- include "accounts.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
-        {{- include "accounts-service.selectorLabels" . | nindent 8 }}
+        {{- include "accounts.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      serviceAccountName: {{ include "accounts.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
           ports:
             - name: http
-              containerPort: {{ .Values.config.httpPort }}
+              containerPort: {{ .Values.service.port }}
               protocol: TCP
-            - name: grpc
-              containerPort: {{ .Values.config.grpcPort }}
-              protocol: TCP
-          env:
-            - name: DATABASE_URL
-              value: "postgres://{{ .Values.global.postgresql.auth.username }}:{{ .Values.global.postgresql.auth.password }}@postgres:5432/{{ .Values.global.postgresql.auth.database }}?sslmode=disable"
-          envFrom:
-            - configMapRef:
-                name: {{ include "accounts-service.fullname" . }}-config
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: http
-            initialDelaySeconds: 15
-            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /health
               port: http
             initialDelaySeconds: 30
-            periodSeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

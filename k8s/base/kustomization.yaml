@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - configmaps/
+  - secrets/
+  - storage/
+  - deployments/
+  - ingress/
+
+commonLabels:
+  app.kubernetes.io/part-of: money-pulse
+  app.kubernetes.io/managed-by: kustomize
+
+namespace: money-pulse 

@@ -3,6 +3,9 @@ kind: Deployment
 metadata:
   name: transactions
 spec:
+  selector:
+    matchLabels:
+      app: transactions
   template:
     spec:
       containers:
@@ -20,6 +23,9 @@ kind: Deployment
 metadata:
   name: users
 spec:
+  selector:
+    matchLabels:
+      app: users
   template:
     spec:
       containers:

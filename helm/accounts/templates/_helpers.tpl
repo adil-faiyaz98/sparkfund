@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "accounts-service.name" -}}
+{{- define "accounts.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "accounts-service.fullname" -}}
+{{- define "accounts.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "accounts-service.chart" -}}
+{{- define "accounts.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "accounts-service.labels" -}}
-helm.sh/chart: {{ include "accounts-service.chart" . }}
-{{ include "accounts-service.selectorLabels" . }}
+{{- define "accounts.labels" -}}
+helm.sh/chart: {{ include "accounts.chart" . }}
+{{ include "accounts.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,7 +43,18 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "accounts-service.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "accounts-service.name" . }}
+{{- define "accounts.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "accounts.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "accounts.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "accounts.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
 {{- end }}

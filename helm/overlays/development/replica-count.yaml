@@ -3,6 +3,13 @@ kind: Deployment
 metadata:
   name: transactions
 spec:
+  selector:
+    matchLabels:
+      app: transactions
+  template:
+    metadata:
+      labels:
+        app: transactions
   replicas: 1
 ---
 apiVersion: apps/v1
@@ -10,4 +17,11 @@ kind: Deployment
 metadata:
   name: users
 spec:
+  selector:
+    matchLabels:
+      app: users
+  template:
+    metadata:
+      labels:
+        app: users
   replicas: 1 

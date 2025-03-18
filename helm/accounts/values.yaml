@@ -2,41 +2,66 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/adil-faiyaz98/money-pulse/accounts-service
-  tag: latest
-  pullPolicy: Always
+  repository: moneypulse/accounts-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
 service:
   type: ClusterIP
-  httpPort: 80
-  grpcPort: 50051
+  port: 8080
 
-config:
-  logLevel: info
-  environment: development
-  httpPort: 8080
-  grpcPort: 50051
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: accounts.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 5
-  targetCPUUtilizationPercentage: 70
-
-resources:
-  limits:
-    cpu: 300m
-    memory: 512Mi
-  requests:
-    cpu: 100m
-    memory: 256Mi
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
 
 tolerations: []
 
 affinity: {}
+
+env:
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: moneypulse-secrets
+        key: accounts_db_url
+  - name: ENV
+    value: "production"
