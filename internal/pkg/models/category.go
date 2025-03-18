@@ -8,17 +8,17 @@ import (
 
 // Category represents a transaction category
 type Category struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	UserID    uint           `gorm:"index;not null" json:"user_id"`
-	Name      string         `gorm:"not null" json:"name"`
-	Color     string         `json:"color"`
-	Icon      string         `json:"icon"`
-	Type      string         `gorm:"not null" json:"type"` // "income" or "expense"
+	ID        uint           `json:"id" gorm:"primarykey"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 
-	// Relationships
-	User         User          `gorm:"foreignKey:UserID" json:"-"`
-	Transactions []Transaction `json:"-"`
+	UserID   uint   `json:"user_id"` // Zero for system categories
+	Name     string `json:"name" gorm:"not null"`
+	Color    string `json:"color"`
+	Icon     string `json:"icon"`
+	IsSystem bool   `json:"is_system" gorm:"default:false"` // True for default system categories
+
+	// Relations
+	Transactions []Transaction `json:"-" gorm:"foreignKey:CategoryID"`
 }

@@ -8,19 +8,18 @@ import (
 
 // Account represents a financial account
 type Account struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	UserID    uint           `gorm:"index;not null" json:"user_id"`
-	Name      string         `gorm:"not null" json:"name"`
-	Type      string         `gorm:"not null" json:"type"` // checking, savings, credit, cash
-	Balance   float64        `gorm:"not null" json:"balance"`
-	Currency  string         `gorm:"not null" json:"currency"`
-	Color     string         `json:"color"`
-	Icon      string         `json:"icon"`
+	ID        uint           `json:"id" gorm:"primarykey"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 
-	// Relationships
-	User         User          `gorm:"foreignKey:UserID" json:"-"`
-	Transactions []Transaction `json:"-"`
+	UserID         uint    `json:"user_id" gorm:"not null;index"`
+	Name           string  `json:"name" gorm:"not null"`
+	Type           string  `json:"type" gorm:"not null"` // checking, savings, credit, investment, etc.
+	InitialBalance float64 `json:"initial_balance"`
+	CurrentBalance float64 `json:"current_balance"`
+	Currency       string  `json:"currency" gorm:"not null"`
+
+	// Relations
+	Transactions []Transaction `json:"-" gorm:"foreignKey:AccountID"`
 }
