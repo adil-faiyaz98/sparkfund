@@ -26,7 +26,10 @@ kind: Deployment
 metadata:
   name: postgres
   namespace: money-pulse
+  labels:
+    app: postgres
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: postgres
@@ -42,6 +45,7 @@ spec:
         image: postgres:15-alpine
         ports:
         - containerPort: 5432
+          name: postgres
         envFrom:
         - secretRef:
             name: postgres-secret
@@ -70,10 +74,12 @@ kind: Service
 metadata:
   name: postgres
   namespace: money-pulse
+  labels:
+    app: postgres
 spec:
   selector:
     app: postgres
   ports:
   - port: 5432
-    targetPort: 5432
-  clusterIP: None # Headless service for StatefulSets
+    targetPort: postgres
+  clusterIP: None  # Headless service for stateful applications

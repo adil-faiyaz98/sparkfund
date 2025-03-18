@@ -14,6 +14,8 @@ kind: Deployment
 metadata:
   name: transactions-service
   namespace: money-pulse
+  labels:
+    app: transactions-service
 spec:
   replicas: 2
   selector:
@@ -26,7 +28,7 @@ spec:
     spec:
       containers:
       - name: transactions-service
-        image: ${DOCKER_REGISTRY}/money-pulse/transactions-service:latest
+        image: ghcr.io/adil-faiyaz98/money-pulse/transactions-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -68,14 +70,16 @@ kind: Service
 metadata:
   name: transactions-service
   namespace: money-pulse
+  labels:
+    app: transactions-service
 spec:
   selector:
     app: transactions-service
   ports:
   - name: http
     port: 80
-    targetPort: 8080
+    targetPort: http
   - name: grpc
     port: 50053
-    targetPort: 50053
+    targetPort: grpc
   type: ClusterIP

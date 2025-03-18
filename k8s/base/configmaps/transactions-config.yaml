@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: transactions-config
+  namespace: money-pulse
+data:
+  LOG_LEVEL: "info"
+  ENVIRONMENT: "development"
+  HTTP_PORT: "8080"
+  GRPC_PORT: "50053"
