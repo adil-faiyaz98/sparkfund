@@ -117,3 +117,12 @@ jobs:
       - name: Apply Terraform
         run: terraform apply -auto-approve
 ```
+
+### 7. Add required dependencies to `go.mod`
+
+```go
+require (
+    github.com/google/uuid v1.3.0
+    github.com/jinzhu/gorm v1.9.16
+)
+```

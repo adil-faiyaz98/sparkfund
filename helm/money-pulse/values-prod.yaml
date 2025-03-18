@@ -1,0 +1,54 @@
+global:
+  environment: production
+  imageTag: stable
+  domain: money-pulse.com
+
+accounts-service:
+  replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+users-service:
+  replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+transactions-service:
+  replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+postgres:
+  # For production, we assume a managed database service would be used instead
+  enabled: false
+
+ingress:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: api.money-pulse.com
+      paths:
+        - path: /accounts/?(.*)
+          service: accounts-service
+          port: 80
+        - path: /users/?(.*)
+          service: users-service
+          port: 80
+        - path: /transactions/?(.*)
+          service: transactions-service
+          port: 80
+  tls:
+    - secretName: money-pulse-tls
+      hosts:
+        - api.money-pulse.com
