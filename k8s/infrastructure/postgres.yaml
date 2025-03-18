@@ -10,6 +10,7 @@ spec:
     requests:
       storage: 1Gi
 ---
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
@@ -71,80 +72,3 @@ spec:
   - port: 5432
     targetPort: postgres
   clusterIP: None  # Headless service for stateful applications
----
-syntax = "proto3";
-package transactions;
-
-option go_package = "money-pulse/api/transactions";
-
-service TransactionService {
-  rpc CreateTransaction(CreateTransactionRequest) returns (Transaction);
-  rpc GetTransaction(GetTransactionRequest) returns (Transaction);
-  rpc UpdateTransaction(UpdateTransactionRequest) returns (Transaction);
-  rpc DeleteTransaction(DeleteTransactionRequest) returns (DeleteTransactionResponse);
-  rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse);
-  rpc SearchTransactions(SearchTransactionsRequest) returns (ListTransactionsResponse);
-}
-
-message Transaction {
-  string id = 1;
-  string account_id = 2;
-  double amount = 3;
-  string currency = 4;
-  string description = 5;
-  string category = 6;
-  string type = 7; // debit or credit
-  string status = 8;
-  string transaction_date = 9;
-  string created_at = 10;
-  string updated_at = 11;
-}
-
-message CreateTransactionRequest {
-  string account_id = 1;
-  double amount = 2;
-  string currency = 3;
-  string description = 4;
-  string category = 5;
-  string type = 6;
-  string transaction_date = 7;
-}
-
-message GetTransactionRequest {
-  string id = 1;
-}
-
-message UpdateTransactionRequest {
-  string id = 1;
-  optional string description = 2;
-  optional string category = 3;
-  optional string status = 4;
-}
-
-message DeleteTransactionRequest {
-  string id = 1;
-}
-
-message DeleteTransactionResponse {
-  bool success = 1;
-}
-
-message ListTransactionsRequest {
-  string account_id = 1;
-  string start_date = 2;
-  string end_date = 3;
-  int32 page = 4;
-  int32 page_size = 5;
-}
-
-message SearchTransactionsRequest {
-  string account_id = 1;
-  string query = 2;
-  int32 page = 3;
-  int32 page_size = 4;
-}
-
-message ListTransactionsResponse {
-  repeated Transaction transactions = 1;
-  int32 total = 2;
-}
