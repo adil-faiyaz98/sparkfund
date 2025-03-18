@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: money-pulse-staging
+
+resources:
+  - ../../base
+
+patchesStrategicMerge:
+  - deployment-patch.yaml
+  - service-patch.yaml
+
+configMapGenerator:
+  - name: money-pulse-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=staging
+      - LOG_LEVEL=info
+
+secretGenerator:
+  - name: db-credentials
+    behavior: merge
+    files:
+      - db-password=secrets/db-password.txt
+    type: Opaque
+
+images:
+  - name: money-pulse
+    newName: registry.example.com/money-pulse
+    newTag: staging
