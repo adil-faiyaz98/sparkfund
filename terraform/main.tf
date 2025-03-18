@@ -1,77 +1,72 @@
+# Money Pulse Infrastructure - Main Configuration
+
 provider "aws" {
   region = var.region
 }
 
+locals {
+  project_name = var.project_name
+  environment  = var.environment
+  tags = {
+    Project     = local.project_name
+    Environment = local.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+# VPC Module
 module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "3.14.0"
+  source = "./modules/vpc"
 
-  name = "${var.project_name}-vpc"
-  cidr = var.vpc_cidr
-
-  azs             = var.availability_zones
-  private_subnets = var.private_subnets
-  public_subnets  = var.public_subnets
-
-  enable_nat_gateway   = true
-  single_nat_gateway   = true
-  enable_dns_hostnames = true
-
-  tags = {
-    Project     = var.project_name
-    Environment = var.environment
-  }
+  project_name      = local.project_name
+  environment       = local.environment
+  vpc_cidr          = var.vpc_cidr
+  azs               = var.availability_zones
+  private_subnets   = var.private_subnets
+  public_subnets    = var.public_subnets
+  database_subnets  = var.database_subnets
+  tags              = local.tags
 }
 
+# EKS Module
 module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "18.20.0"
+  source = "./modules/eks"
 
-  cluster_name    = "${var.project_name}-cluster"
-  cluster_version = "1.27"
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
-
-  # EKS Managed Node Group(s)
-  eks_managed_node_group_defaults = {
-    ami_type       = "AL2_x86_64"
-    instance_types = ["t3a.medium"]
-    
-    attach_cluster_primary_security_group = true
-
-    # We are using the IRSA created below for permissions
-    iam_role_additional_policies = [
-      "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
-      "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
-      "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
-    ]
-  }
-
-  eks_managed_node_groups = {
-    default_node_group = {
-      name = "node-group-1"
-
-      instance_types = ["t3a.medium"]
-      min_size       = 1
-      max_size       = 3
-      desired_size   = 2
-    }
-  }
-
-  tags = {
-    Project     = var.project_name
-    Environment = var.environment
-  }
+  project_name        = local.project_name
+  environment         = local.environment
+  vpc_id              = module.vpc.vpc_id
+  private_subnet_ids  = module.vpc.private_subnet_ids
+  public_subnet_ids   = module.vpc.public_subnet_ids
+  eks_version         = var.eks_version
+  node_instance_types = var.node_instance_types
+  node_desired_size   = var.node_desired_size
+  node_min_size       = var.node_min_size
+  node_max_size       = var.node_max_size
+  tags                = local.tags
 }
 
-# OIDC Provider
-data "tls_certificate" "eks" {
-  url = module.eks.cluster_oidc_issuer_url
+# RDS PostgreSQL Module
+module "rds" {
+  source = "./modules/rds"
+
+  project_name        = local.project_name
+  environment         = local.environment
+  vpc_id              = module.vpc.vpc_id
+  database_subnet_ids = module.vpc.database_subnet_ids
+  allowed_cidr_blocks = module.vpc.private_subnet_cidr_blocks
+  db_name             = var.db_name
+  db_username         = var.db_username
+  db_password         = var.db_password
+  db_instance_class   = var.db_instance_class
+  tags                = local.tags
 }
 
-resource "aws_iam_openid_connect_provider" "eks" {
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
-  url             = module.eks.cluster_oidc_issuer_url
+# Monitoring Module (CloudWatch)
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  project_name  = local.project_name
+  environment   = local.environment
+  eks_cluster_name = module.eks.cluster_name
+  tags          = local.tags
 }
