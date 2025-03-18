@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reports-config
+  labels:
+    app: money-pulse
+    component: reports
+data:
+  REPORTS_API_ENDPOINT: "https://api.reports.moneypulse.io/v1"
+  DEFAULT_REPORT_FORMAT: "pdf"
+  AVAILABLE_FORMATS: "pdf,csv,xlsx,json"
+  MONTHLY_SUMMARY_CRON: "0 0 1 * *"  # First day of month at midnight
+  WEEKLY_SUMMARY_CRON: "0 0 * * 0"   # Every Sunday at midnight
+  REPORT_RETENTION_DAYS: "365"
+  INCLUDE_GRAPHS: "true"
+  INCLUDE_PREDICTIONS: "true"
+  EMAIL_REPORTS: "true"
+  EMAIL_SERVICE_ENDPOINT: "http://notification-service:8080/email"
+  SPENDING_CATEGORIES: "housing,transportation,food,utilities,healthcare,entertainment,education,debt,savings"
+  LOG_LEVEL: "info"
+  REPORT_GENERATION_TIMEOUT: "300"  # In seconds
