@@ -8,7 +8,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/your-username/money-pulse/internal/pkg/models"
+	"github.com/adilm/money-pulse/internal/pkg/models"
 )
 
 // Config holds the database configuration
@@ -28,7 +28,6 @@ func Connect(config *Config) (*gorm.DB, error) {
 		config.Host, config.User, config.Password, config.DBName, config.Port, config.SSLMode,
 	)
 
-	gormConfig := &gorm.Config{
 	gormConfig := &gorm.Config{}
 	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
 	if err != nil {
@@ -50,18 +49,18 @@ func Connect(config *Config) (*gorm.DB, error) {
 // MigrateSchema performs database migrations
 func MigrateSchema(db *gorm.DB) error {
 	log.Println("Running database migrations...")
-	
+
 	err := db.AutoMigrate(
 		&models.User{},
 		&models.Transaction{},
 		&models.Category{},
 		&models.Account{},
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to migrate schema: %w", err)
 	}
-	
+
 	log.Println("Database migrations completed successfully")
 	return nil
 }
