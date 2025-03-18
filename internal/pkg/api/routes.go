@@ -3,7 +3,7 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/adilm/money-pulse/internal/pkg/middleware"
+	"github.com/adil-faiyaz98/aegisfinance/api/middleware"
 )
 
 // SetupRouter configures the API routes

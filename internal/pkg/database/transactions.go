@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/your-username/money-pulse/internal/pkg/models"
+	"github.com/adilm/money-pulse/internal/pkg/models"
 )
 
 // TransactionRepository handles database operations for transactions

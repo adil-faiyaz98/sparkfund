@@ -13,20 +13,19 @@ import (
 	"github.com/adil-faiyaz98/structgen/internal/reports/repository/postgres"
 	"github.com/adil-faiyaz98/structgen/internal/reports/service"
 	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func main() {
-	// Initialize database connection
-	db, err := gorm.Open("postgres", os.Getenv("DATABASE_URL"))
+	dsn := os.Getenv("DATABASE_URL")
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
-
 	// Initialize repository
 	repo := postgres.NewReportRepository(db)
+	repo := postgresrepo.NewReportRepository(db)
 
 	// Initialize service
 	svc := service.NewReportService(repo)

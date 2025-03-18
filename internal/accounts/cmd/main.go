@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/adil-faiyaz98/money-pulse/services/accounts-service/internal/accounts/handlers"
+	"github.com/adil-faiyaz98/money-pulse/internal/accounts/handlers"
 	"github.com/adil-faiyaz98/money-pulse/services/accounts-service/internal/accounts/repository"
 	"github.com/adil-faiyaz98/money-pulse/services/accounts-service/internal/accounts/service"
 
