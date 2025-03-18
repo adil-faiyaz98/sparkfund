@@ -83,26 +83,6 @@ postgres:
       cpu: 100m
       memory: 256Mi
 
-ingress:
-  enabled: true
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-  hosts:
-    - host: api.$(global.domain)
-      paths:
-        - path: /accounts/?(.*)
-          service: accounts-service
-          port: 80
-        - path: /users/?(.*)
-          service: users-service
-          port: 80
-        - path: /transactions/?(.*)
-          service: transactions-service
-          port: 80
-
-# Default values for money-pulse
 replicaCount: 1
 
 image:
