@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"your-project/internal/accounts/handlers"
-	"your-project/internal/accounts/repository"
-	"your-project/internal/accounts/service"
+	"github.com/adil-faiyaz98/money-pulse/services/accounts-service/internal/accounts/handlers"
+	"github.com/adil-faiyaz98/money-pulse/services/accounts-service/internal/accounts/repository"
+	"github.com/adil-faiyaz98/money-pulse/services/accounts-service/internal/accounts/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"

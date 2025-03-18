@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/adil-faiyaz98/structgen/internal/accounts"
+	"github.com/adil-faiyaz98/money-pulse/services/accounts-service/internal/accounts"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
