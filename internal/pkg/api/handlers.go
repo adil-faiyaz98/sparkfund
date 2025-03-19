@@ -489,10 +489,10 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 		return
 	}
 	
-    if err != nil {
-	categories, err := h.categoryRepo.GetCategories(c.Request.Context(), userID): "Category not found"})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch categories"})    }
+	c.JSON(http.StatusOK, transaction)
+}
+
+// UpdateTransaction handles updating a transaction
 		return
 	}
 ss denied"})

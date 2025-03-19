@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: users-service-config
+data:
+  config.yaml: |
+    server:
+      port: 8080
+      read_timeout: 10s
+      write_timeout: 10s
+      idle_timeout: 120s
+    
+    database:
+      max_open_conns: 25
+      max_idle_conns: 25
+      conn_max_lifetime: 5m
+    
+    jwt:
+      token_expiry: 24h
+      refresh_token_expiry: 168h
+    
+    logging:
+      level: info
+      format: json
+      output: stdout
+    
+    metrics:
+      enabled: true
+      path: /metrics
+      port: 9090
+    
+    tracing:
+      enabled: true
+      service_name: users-service
+      sampler: 1.0 

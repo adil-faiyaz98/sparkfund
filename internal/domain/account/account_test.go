@@ -80,7 +80,7 @@ func TestIntegration_AccountRepository_Save(t *testing.T) {
 	// repo := NewAccountRepository(db)
 
 	// Option 2: Use blank identifier
-	_ = &Account(
+	_ = &Account{
 		ID:        "test-id",
 		Name:      "Test Account",
 		Balance:   1000.0,
