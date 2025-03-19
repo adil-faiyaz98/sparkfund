@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+package loans.v1;
+
+option go_package = "github.com/adil-faiyaz98/money-pulse/proto/loans/v1";
+
+import "common/v1/common.proto";
+
+// Loan types
+enum LoanType {
+  LOAN_TYPE_UNSPECIFIED = 0;
+  LOAN_TYPE_PERSONAL = 1;
+  LOAN_TYPE_HOME = 2;
+  LOAN_TYPE_AUTO = 3;
+  LOAN_TYPE_BUSINESS = 4;
+  LOAN_TYPE_EDUCATION = 5;
+}
+
+// Loan status
+enum LoanStatus {
+  LOAN_STATUS_UNSPECIFIED = 0;
+  LOAN_STATUS_PENDING = 1;
+  LOAN_STATUS_APPROVED = 2;
+  LOAN_STATUS_REJECTED = 3;
+  LOAN_STATUS_ACTIVE = 4;
+  LOAN_STATUS_PAID = 5;
+  LOAN_STATUS_DEFAULTED = 6;
+  LOAN_STATUS_CLOSED = 7;
+}
+
+// Loan entity
+message Loan {
+  string id = 1;
+  string user_id = 2;
+  string account_id = 3;
+  LoanType type = 4;
+  common.v1.Money amount = 5;
+  double interest_rate = 6;
+  int32 term_months = 7;
+  common.v1.Money monthly_payment = 8;
+  LoanStatus status = 9;
+  string purpose = 10;
+  common.v1.Timestamp created_at = 11;
+  common.v1.Timestamp updated_at = 12;
+  common.v1.Timestamp next_payment_date = 13;
+}
+
+// Create loan request
+message CreateLoanRequest {
+  string user_id = 1;
+  string account_id = 2;
+  LoanType type = 3;
+  common.v1.Money amount = 4;
+  double interest_rate = 5;
+  int32 term_months = 6;
+  string purpose = 7;
+}
+
+// Create loan response
+message CreateLoanResponse {
+  common.v1.Response response = 1;
+  Loan loan = 2;
+}
+
+// Get loan request
+message GetLoanRequest {
+  string id = 1;
+}
+
+// Get loan response
+message GetLoanResponse {
+  common.v1.Response response = 1;
+  Loan loan = 2;
+}
+
+// Get user loans request
+message GetUserLoansRequest {
+  string user_id = 1;
+  common.v1.PaginationParams pagination = 2;
+  LoanType type = 3;
+  LoanStatus status = 4;
+}
+
+// Get user loans response
+message GetUserLoansResponse {
+  common.v1.Response response = 1;
+  repeated Loan loans = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// Update loan status request
+message UpdateLoanStatusRequest {
+  string id = 1;
+  LoanStatus status = 2;
+}
+
+// Update loan status response
+message UpdateLoanStatusResponse {
+  common.v1.Response response = 1;
+  Loan loan = 2;
+}
+
+// Make payment request
+message MakePaymentRequest {
+  string loan_id = 1;
+  common.v1.Money amount = 2;
+}
+
+// Make payment response
+message MakePaymentResponse {
+  common.v1.Response response = 1;
+  Loan loan = 2;
+}
+
+// Get loan schedule request
+message GetLoanScheduleRequest {
+  string loan_id = 1;
+}
+
+// Payment schedule entry
+message PaymentScheduleEntry {
+  int32 payment_number = 1;
+  common.v1.Money amount = 2;
+  common.v1.Money principal = 3;
+  common.v1.Money interest = 4;
+  common.v1.Money remaining_balance = 5;
+  common.v1.Timestamp due_date = 6;
+}
+
+// Get loan schedule response
+message GetLoanScheduleResponse {
+  common.v1.Response response = 1;
+  repeated PaymentScheduleEntry schedule = 2;
+}
+
+// Loan service definition
+service LoanService {
+  rpc CreateLoan(CreateLoanRequest) returns (CreateLoanResponse) {}
+  rpc GetLoan(GetLoanRequest) returns (GetLoanResponse) {}
+  rpc GetUserLoans(GetUserLoansRequest) returns (GetUserLoansResponse) {}
+  rpc UpdateLoanStatus(UpdateLoanStatusRequest) returns (UpdateLoanStatusResponse) {}
+  rpc MakePayment(MakePaymentRequest) returns (MakePaymentResponse) {}
+  rpc GetLoanSchedule(GetLoanScheduleRequest) returns (GetLoanScheduleResponse) {}
+} 

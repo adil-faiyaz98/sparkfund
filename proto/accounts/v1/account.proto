@@ -2,99 +2,134 @@ syntax = "proto3";
 
 package accounts.v1;
 
-option go_package = "github.com/adil-faiyaz98/money-pulse/proto/accounts/v1;accountsv1";
+option go_package = "github.com/adil-faiyaz98/money-pulse/proto/accounts/v1";
 
-// AccountService provides methods to manage accounts
-service AccountService {
-  // CreateAccount creates a new account
-  rpc CreateAccount(CreateAccountRequest) returns (Account) {}
-  
-  // GetAccount retrieves an account by ID
-  rpc GetAccount(GetAccountRequest) returns (Account) {}
-  
-  // GetUserAccounts retrieves all accounts for a user
-  rpc GetUserAccounts(GetUserAccountsRequest) returns (GetUserAccountsResponse) {}
-  
-  // UpdateAccount updates an existing account
-  rpc UpdateAccount(UpdateAccountRequest) returns (Account) {}
-  
-  // DeleteAccount deletes an account
-  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse) {}
-  
-  // GetAccountByNumber retrieves an account by account number
-  rpc GetAccountByNumber(GetAccountByNumberRequest) returns (Account) {}
-  
-  // UpdateBalance updates the balance of an account
-  rpc UpdateBalance(UpdateBalanceRequest) returns (Account) {}
+import "common/v1/common.proto";
+
+// Account types
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  ACCOUNT_TYPE_SAVINGS = 1;
+  ACCOUNT_TYPE_CHECKING = 2;
+  ACCOUNT_TYPE_INVESTMENT = 3;
+  ACCOUNT_TYPE_CREDIT = 4;
 }
 
-// Account represents a bank account
+// Account status
+enum AccountStatus {
+  ACCOUNT_STATUS_UNSPECIFIED = 0;
+  ACCOUNT_STATUS_ACTIVE = 1;
+  ACCOUNT_STATUS_INACTIVE = 2;
+  ACCOUNT_STATUS_BLOCKED = 3;
+  ACCOUNT_STATUS_CLOSED = 4;
+}
+
+// Account entity
 message Account {
   string id = 1;
   string user_id = 2;
   string name = 3;
-  string account_number = 4;
-  AccountType type = 5;
-  double balance = 6;
-  string currency = 7;
-  int64 created_at = 8;
-  int64 updated_at = 9;
+  AccountType type = 4;
+  common.v1.Money balance = 5;
+  string account_number = 6;
+  AccountStatus status = 7;
+  common.v1.Timestamp created_at = 8;
+  common.v1.Timestamp updated_at = 9;
 }
 
-// AccountType represents the type of account
-enum AccountType {
-  ACCOUNT_TYPE_UNSPECIFIED = 0;
-  ACCOUNT_TYPE_CHECKING = 1;
-  ACCOUNT_TYPE_SAVINGS = 2;
-  ACCOUNT_TYPE_CREDIT = 3;
-  ACCOUNT_TYPE_INVESTMENT = 4;
-}
-
-// CreateAccountRequest represents the request to create a new account
+// Create account request
 message CreateAccountRequest {
   string user_id = 1;
   string name = 2;
   AccountType type = 3;
-  string currency = 4;
+  common.v1.Money initial_balance = 4;
 }
 
-// GetAccountRequest represents the request to get an account by ID
+// Create account response
+message CreateAccountResponse {
+  common.v1.Response response = 1;
+  Account account = 2;
+}
+
+// Get account request
 message GetAccountRequest {
   string id = 1;
 }
 
-// GetUserAccountsRequest represents the request to get all accounts for a user
+// Get account response
+message GetAccountResponse {
+  common.v1.Response response = 1;
+  Account account = 2;
+}
+
+// Get user accounts request
 message GetUserAccountsRequest {
   string user_id = 1;
+  common.v1.PaginationParams pagination = 2;
 }
 
-// GetUserAccountsResponse represents the response containing all accounts for a user
+// Get user accounts response
 message GetUserAccountsResponse {
-  repeated Account accounts = 1;
+  common.v1.Response response = 1;
+  repeated Account accounts = 2;
+  common.v1.PaginationResponse pagination = 3;
 }
 
-// UpdateAccountRequest represents the request to update an account
+// Update account request
 message UpdateAccountRequest {
   string id = 1;
   string name = 2;
   AccountType type = 3;
+  AccountStatus status = 4;
 }
 
-// DeleteAccountRequest represents the request to delete an account
+// Update account response
+message UpdateAccountResponse {
+  common.v1.Response response = 1;
+  Account account = 2;
+}
+
+// Delete account request
 message DeleteAccountRequest {
   string id = 1;
 }
 
-// DeleteAccountResponse represents the response to delete an account
-message DeleteAccountResponse {}
+// Delete account response
+message DeleteAccountResponse {
+  common.v1.Response response = 1;
+}
 
-// GetAccountByNumberRequest represents the request to get an account by account number
+// Get account by number request
 message GetAccountByNumberRequest {
   string account_number = 1;
 }
 
-// UpdateBalanceRequest represents the request to update an account's balance
+// Get account by number response
+message GetAccountByNumberResponse {
+  common.v1.Response response = 1;
+  Account account = 2;
+}
+
+// Update balance request
 message UpdateBalanceRequest {
-  string id = 1;
-  double amount = 2;
+  string account_id = 1;
+  common.v1.Money amount = 2;
+  string operation = 3; // "add" or "subtract"
+}
+
+// Update balance response
+message UpdateBalanceResponse {
+  common.v1.Response response = 1;
+  Account account = 2;
+}
+
+// Account service definition
+service AccountService {
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse) {}
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse) {}
+  rpc GetUserAccounts(GetUserAccountsRequest) returns (GetUserAccountsResponse) {}
+  rpc UpdateAccount(UpdateAccountRequest) returns (UpdateAccountResponse) {}
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse) {}
+  rpc GetAccountByNumber(GetAccountByNumberRequest) returns (GetAccountByNumberResponse) {}
+  rpc UpdateBalance(UpdateBalanceRequest) returns (UpdateBalanceResponse) {}
 } 

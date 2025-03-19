@@ -38,20 +38,29 @@ run: build
 clean:
 	rm -rf bin/
 	rm -f *.out
+	find . -name "*.pb.go" -type f -delete
 
-# Run tests
+# Run all tests
 .PHONY: test
-test: unit-test integration-test
+test: unit-test integration-test e2e-test
 
 # Run unit tests only
 .PHONY: unit-test
 unit-test:
-	$(GOTEST) -short ./...
+	@echo "Running unit tests..."
+	$(GOTEST) -short -v ./...
 
 # Run integration tests only
 .PHONY: integration-test
 integration-test:
-	$(GOTEST) -run Integration ./...
+	@echo "Running integration tests..."
+	$(GOTEST) -v -tags=integration ./...
+
+# Run end-to-end tests only
+.PHONY: e2e-test
+e2e-test:
+	@echo "Running end-to-end tests..."
+	$(GOTEST) -v -tags=e2e ./tests/e2e/...
 
 # Run tests with coverage
 .PHONY: test-coverage
@@ -120,6 +129,91 @@ release-%: test docker-tag-$* deploy-$*
 manifests-%:
 	$(KUSTOMIZE) k8s/overlays/$* > k8s-$*.yaml
 
+# Install dependencies
+.PHONY: deps
+deps:
+	@echo "Installing dependencies..."
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install github.com/smartystreets/goconvey@latest
+
+# Generate protobuf code for all services
+.PHONY: proto-all
+proto-all: proto-accounts proto-users proto-transactions proto-loans proto-investments proto-reports
+
+# Generate protobuf code for accounts service
+.PHONY: proto-accounts
+proto-accounts:
+	@echo "Generating protobuf code for accounts service..."
+	protoc -I ./proto \
+		--go_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative \
+		./proto/common/v1/common.proto \
+		./proto/accounts/v1/account.proto
+
+# Generate protobuf code for users service
+.PHONY: proto-users
+proto-users:
+	@echo "Generating protobuf code for users service..."
+	protoc -I ./proto \
+		--go_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative \
+		./proto/common/v1/common.proto \
+		./proto/users/v1/user.proto
+
+# Generate protobuf code for transactions service
+.PHONY: proto-transactions
+proto-transactions:
+	@echo "Generating protobuf code for transactions service..."
+	protoc -I ./proto \
+		--go_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative \
+		./proto/common/v1/common.proto \
+		./proto/transactions/v1/transaction.proto
+
+# Generate protobuf code for loans service
+.PHONY: proto-loans
+proto-loans:
+	@echo "Generating protobuf code for loans service..."
+	protoc -I ./proto \
+		--go_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative \
+		./proto/common/v1/common.proto \
+		./proto/loans/v1/loan.proto
+
+# Generate protobuf code for investments service
+.PHONY: proto-investments
+proto-investments:
+	@echo "Generating protobuf code for investments service..."
+	protoc -I ./proto \
+		--go_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative \
+		./proto/common/v1/common.proto \
+		./proto/investments/v1/investment.proto
+
+# Generate protobuf code for reports service
+.PHONY: proto-reports
+proto-reports:
+	@echo "Generating protobuf code for reports service..."
+	protoc -I ./proto \
+		--go_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative \
+		./proto/common/v1/common.proto \
+		./proto/reports/v1/report.proto
+
 # Help target
 .PHONY: help
 help:
@@ -128,8 +222,12 @@ help:
 	@echo "  build            : Build the application"
 	@echo "  clean            : Remove build artifacts"
 	@echo "  run              : Build and run the application"
-	@echo "  test             : Run tests"
+	@echo "  test             : Run all tests (unit, integration, e2e)"
+	@echo "  unit-test        : Run unit tests only"
+	@echo "  integration-test : Run integration tests only"
+	@echo "  e2e-test         : Run end-to-end tests only"
 	@echo "  test-coverage    : Run tests with coverage"
+	@echo "  test-watch       : Run tests continuously on file changes"
 	@echo "  lint             : Lint the code"
 	@echo "  fmt              : Format the code"
 	@echo "  docker-build     : Build Docker image"
@@ -139,4 +237,12 @@ help:
 	@echo "  view-ENV         : View Kubernetes resources in specific environment"
 	@echo "  release-ENV      : Full release pipeline for environment (dev, staging, prod)"
 	@echo "  manifests-ENV    : Generate Kubernetes manifests for environment"
+	@echo "  deps             : Install dependencies"
+	@echo "  proto-all        : Generate protobuf code for all services"
+	@echo "  proto-accounts   : Generate protobuf code for accounts service"
+	@echo "  proto-users      : Generate protobuf code for users service"
+	@echo "  proto-transactions: Generate protobuf code for transactions service"
+	@echo "  proto-loans      : Generate protobuf code for loans service"
+	@echo "  proto-investments: Generate protobuf code for investments service"
+	@echo "  proto-reports    : Generate protobuf code for reports service"
 	@echo "  help             : Show this help message"

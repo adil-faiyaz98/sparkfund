@@ -1,8 +1,9 @@
-module github.com/adil-faiyaz98/structgen
+module github.com/adilm/money-pulse
 
-go 1.24.0
+go 1.21
 
 require (
+	github.com/aws/aws-lambda-go v1.46.0
 	github.com/aws/aws-sdk-go-v2 v1.24.0
 	github.com/aws/aws-sdk-go-v2/config v1.26.2
 	github.com/aws/aws-sdk-go-v2/service/sagemakerruntime v1.24.5

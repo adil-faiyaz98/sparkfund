@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+package investments.v1;
+
+option go_package = "github.com/adil-faiyaz98/money-pulse/proto/investments/v1";
+
+import "common/v1/common.proto";
+
+// Investment types
+enum InvestmentType {
+  INVESTMENT_TYPE_UNSPECIFIED = 0;
+  INVESTMENT_TYPE_STOCKS = 1;
+  INVESTMENT_TYPE_BONDS = 2;
+  INVESTMENT_TYPE_MUTUAL_FUNDS = 3;
+  INVESTMENT_TYPE_ETFS = 4;
+  INVESTMENT_TYPE_CRYPTOCURRENCY = 5;
+}
+
+// Investment status
+enum InvestmentStatus {
+  INVESTMENT_STATUS_UNSPECIFIED = 0;
+  INVESTMENT_STATUS_ACTIVE = 1;
+  INVESTMENT_STATUS_SOLD = 2;
+  INVESTMENT_STATUS_PENDING = 3;
+  INVESTMENT_STATUS_FAILED = 4;
+}
+
+// Investment entity
+message Investment {
+  string id = 1;
+  string user_id = 2;
+  string account_id = 3;
+  InvestmentType type = 4;
+  string symbol = 5;
+  string name = 6;
+  common.v1.Money amount = 7;
+  double quantity = 8;
+  double average_price = 9;
+  InvestmentStatus status = 10;
+  common.v1.Timestamp created_at = 11;
+  common.v1.Timestamp updated_at = 12;
+  common.v1.Timestamp last_price_update = 13;
+}
+
+// Create investment request
+message CreateInvestmentRequest {
+  string user_id = 1;
+  string account_id = 2;
+  InvestmentType type = 3;
+  string symbol = 4;
+  string name = 5;
+  common.v1.Money amount = 6;
+  double quantity = 7;
+}
+
+// Create investment response
+message CreateInvestmentResponse {
+  common.v1.Response response = 1;
+  Investment investment = 2;
+}
+
+// Get investment request
+message GetInvestmentRequest {
+  string id = 1;
+}
+
+// Get investment response
+message GetInvestmentResponse {
+  common.v1.Response response = 1;
+  Investment investment = 2;
+}
+
+// Get user investments request
+message GetUserInvestmentsRequest {
+  string user_id = 1;
+  common.v1.PaginationParams pagination = 2;
+  InvestmentType type = 3;
+  InvestmentStatus status = 4;
+}
+
+// Get user investments response
+message GetUserInvestmentsResponse {
+  common.v1.Response response = 1;
+  repeated Investment investments = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// Update investment request
+message UpdateInvestmentRequest {
+  string id = 1;
+  double quantity = 2;
+  common.v1.Money amount = 3;
+  InvestmentStatus status = 4;
+}
+
+// Update investment response
+message UpdateInvestmentResponse {
+  common.v1.Response response = 1;
+  Investment investment = 2;
+}
+
+// Get investment performance request
+message GetInvestmentPerformanceRequest {
+  string id = 1;
+  common.v1.Timestamp start_date = 2;
+  common.v1.Timestamp end_date = 3;
+}
+
+// Performance metrics
+message PerformanceMetrics {
+  common.v1.Money current_value = 1;
+  common.v1.Money total_return = 2;
+  double return_percentage = 3;
+  common.v1.Money daily_change = 4;
+  double daily_change_percentage = 5;
+}
+
+// Get investment performance response
+message GetInvestmentPerformanceResponse {
+  common.v1.Response response = 1;
+  PerformanceMetrics metrics = 2;
+  repeated PricePoint price_history = 3;
+}
+
+// Price point for historical data
+message PricePoint {
+  common.v1.Timestamp timestamp = 1;
+  double price = 2;
+  double volume = 3;
+}
+
+// Get market data request
+message GetMarketDataRequest {
+  string symbol = 1;
+  InvestmentType type = 2;
+}
+
+// Market data
+message MarketData {
+  string symbol = 1;
+  string name = 2;
+  double current_price = 3;
+  common.v1.Money market_cap = 4;
+  double volume_24h = 5;
+  double price_change_24h = 6;
+  double price_change_percentage_24h = 7;
+  common.v1.Timestamp last_updated = 8;
+}
+
+// Get market data response
+message GetMarketDataResponse {
+  common.v1.Response response = 1;
+  MarketData data = 2;
+}
+
+// Investment service definition
+service InvestmentService {
+  rpc CreateInvestment(CreateInvestmentRequest) returns (CreateInvestmentResponse) {}
+  rpc GetInvestment(GetInvestmentRequest) returns (GetInvestmentResponse) {}
+  rpc GetUserInvestments(GetUserInvestmentsRequest) returns (GetUserInvestmentsResponse) {}
+  rpc UpdateInvestment(UpdateInvestmentRequest) returns (UpdateInvestmentResponse) {}
+  rpc GetInvestmentPerformance(GetInvestmentPerformanceRequest) returns (GetInvestmentPerformanceResponse) {}
+  rpc GetMarketData(GetMarketDataRequest) returns (GetMarketDataResponse) {}
+} 

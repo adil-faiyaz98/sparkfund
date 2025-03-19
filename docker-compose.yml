@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -28,11 +28,18 @@ services:
     environment:
       - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
       - PORT=8080
+      - OTEL_SERVICE_NAME=users-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     ports:
       - "8081:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     networks:
       - money-pulse-network
 
@@ -44,12 +51,19 @@ services:
     environment:
       - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
       - PORT=8080
+      - OTEL_SERVICE_NAME=accounts-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     ports:
       - "8082:8080"
     depends_on:
       postgres:
         condition: service_healthy
       users-service:
+        condition: service_started
+      otel-collector:
         condition: service_started
     networks:
       - money-pulse-network
@@ -62,6 +76,11 @@ services:
     environment:
       - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
       - PORT=8080
+      - OTEL_SERVICE_NAME=transactions-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     ports:
       - "8083:8080"
     depends_on:
@@ -70,6 +89,8 @@ services:
       users-service:
         condition: service_started
       accounts-service:
+        condition: service_started
+      otel-collector:
         condition: service_started
     networks:
       - money-pulse-network
@@ -82,6 +103,11 @@ services:
     environment:
       - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
       - PORT=8080
+      - OTEL_SERVICE_NAME=investments-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     ports:
       - "8084:8080"
     depends_on:
@@ -90,6 +116,8 @@ services:
       users-service:
         condition: service_started
       accounts-service:
+        condition: service_started
+      otel-collector:
         condition: service_started
     networks:
       - money-pulse-network
@@ -102,6 +130,11 @@ services:
     environment:
       - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
       - PORT=8080
+      - OTEL_SERVICE_NAME=loans-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     ports:
       - "8085:8080"
     depends_on:
@@ -110,6 +143,8 @@ services:
       users-service:
         condition: service_started
       accounts-service:
+        condition: service_started
+      otel-collector:
         condition: service_started
     networks:
       - money-pulse-network
@@ -122,6 +157,11 @@ services:
     environment:
       - DATABASE_URL=postgres://moneypulse:moneypulse@postgres:5432/moneypulse?sslmode=disable
       - PORT=8080
+      - OTEL_SERVICE_NAME=reports-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     ports:
       - "8086:8080"
     depends_on:
@@ -137,16 +177,18 @@ services:
         condition: service_started
       loans-service:
         condition: service_started
+      otel-collector:
+        condition: service_started
     networks:
       - money-pulse-network
 
-  auth-service::
-    build: consul:latest
-      context: ./auth-servicese-consul      context: ./auth-service
-    container_name: money-pulse-auth-servicee
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: money-pulse-auth-service
     restart: always
-    ports:600:8600/tcp"
-      - "8085:8085"udp"      - "8085:8085"
+    ports:
+      - "8085:8085"
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -157,92 +199,99 @@ services:
       - REFRESH_TOKEN_SECRET=your_refresh_secret_key
       - SERVICE_HOST=auth-service
       - CONSUL_ADDR=consul:8500
+      - OTEL_SERVICE_NAME=auth-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
     depends_on:
       - postgres
       - consul
-    networks:ridge  money-pulse-network:networks:  postgres_data:volumes:      - money-pulse-network    networks:      - CONSUL_BIND_INTERFACE=eth0    environment:    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"    environment:
+      - otel-collector
+    networks:
       - money-pulse-network
-      - DB_PORT=5432
-  prometheus:DB_USER=postgres
-    image: prom/prometheus:latestORD=postgres
-    container_name: money-pulse-prometheus      - DB_NAME=auth_db
-    ports:CCESS_TOKEN_SECRET=your_secret_key_here
-      - "9090:9090"SECRET=your_refresh_secret_key
-    volumes:ST=auth-service
-      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml      - CONSUL_ADDR=consul:8500
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    driver: bridge  money-pulse-network:networks:  postgres_data:volumes:      - money-pulse-network    networks:      - prometheus      - jaeger    depends_on:      - "8889:8889"  # Prometheus exporter      - "8888:8888"  # Prometheus metrics      - "4318:4318"  # OTLP HTTP      - "4317:4317"  # OTLP gRPC    ports:      - ./observability/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml    volumes:    command: ["--config=/etc/otel-collector-config.yaml"]    container_name: money-pulse-otel-collector    image: otel/opentelemetry-collector:latest  otel-collector:      - money-pulse-network    networks:    command: -config.file=/etc/loki/local-config.yaml      - "3100:3100"    ports:    container_name: money-pulse-loki    image: grafana/loki:latest  loki:      - money-pulse-network    networks:      - COLLECTOR_ZIPKIN_HTTP_PORT=9411    environment:      - "6831:6831/udp"  # Agent      - "14268:14268"  # Collector HTTP      - "16686:16686"  # Jaeger UI    ports:    container_name: money-pulse-jaeger    image: jaegertracing/all-in-one:latest  jaeger:      - money-pulse-network    networks:      - loki      - prometheus    depends_on:      - GF_USERS_ALLOW_SIGN_UP=false      - GF_SECURITY_ADMIN_PASSWORD=admin      - GF_SECURITY_ADMIN_USER=admin    environment:      - ./observability/grafana/provisioning:/etc/grafana/provisioning    volumes:      - "3000:3000"    ports:    container_name: money-pulse-grafana    image: grafana/grafana:latest  grafana:      - money-pulse-network    networks:      - '--web.console.templates=/usr/share/prometheus/consoles'      - '--web.console.libraries=/usr/share/prometheus/console_libraries'      - '--storage.tsdb.path=/prometheus'      - '--config.file=/etc/prometheus/prometheus.yml'    command:    depends_on:
-      - postgres
-      - consul
+  consul:
+    image: consul:latest
+    container_name: money-pulse-consul
+    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+    ports:
+      - "8500:8500"
+      - "8600:8600/tcp"
+      - "8600:8600/udp"
+    networks:
+      - money-pulse-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: money-pulse-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    networks:
+      - money-pulse-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: money-pulse-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - money-pulse-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: money-pulse-jaeger
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "14268:14268" # Collector HTTP
+      - "6831:6831/udp" # Agent
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+    networks:
+      - money-pulse-network
+
+  loki:
+    image: grafana/loki:latest
+    container_name: money-pulse-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - money-pulse-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: money-pulse-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "8888:8888" # Prometheus metrics
+      - "8889:8889" # Prometheus exporter
+    depends_on:
+      - jaeger
+      - prometheus
+      - loki
     networks:
       - money-pulse-network
 
