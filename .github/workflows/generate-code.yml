@@ -1,0 +1,54 @@
+name: Generate Code from Protobuf
+
+on:
+  push:
+    tags:
+      - "v*.*.*" # Trigger on version tags like v1.2.3
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [auth-service, transaction-service, user-service] # Add all your services here
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.20"
+
+      - name: Install Protoc
+        run: |
+          apt-get update && apt-get install -y protobuf-compiler
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Generate code for ${{ matrix.service }}
+        run: |
+          ./run.sh ${{ matrix.service }}
+          cd proto/${{ matrix.service }}
+          go mod init github.com/adilm/money-pulse/proto/${{ matrix.service }}
+          go mod tidy
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Commit and push changes
+        run: |
+          git add .
+          git commit -m "Auto-generate code for ${{ matrix.service }}" || echo "No changes to commit"
+          git push
+
+      - name: Create and push service tag
+        run: |
+          TAG_NAME="${{ matrix.service }}-$(echo ${{ github.ref }} | sed 's|refs/tags/||')"
+          git tag $TAG_NAME
+          git push origin $TAG_NAME

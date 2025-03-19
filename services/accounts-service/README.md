@@ -50,6 +50,62 @@ The service follows a hexagonal architecture pattern with the following componen
    make run
    ```
 
+## Protocol Buffers
+
+The service uses Protocol Buffers for API definitions and code generation. The proto files are located in the `proto/accounts/v1` directory.
+
+### Proto File Structure
+
+```
+proto/
+└── accounts/
+    └── v1/
+        └── account.proto
+```
+
+### Generating Code
+
+The service includes a Makefile target for generating protobuf code:
+
+```bash
+make proto
+```
+
+This command will:
+1. Use the proto files from the `proto/accounts/v1` directory
+2. Generate Go code for both messages and gRPC services
+3. Place the generated files in the same directory structure
+4. Use source-relative paths for imports
+
+The generated files will be:
+- `account.pb.go`: Contains message definitions
+- `account_grpc.pb.go`: Contains gRPC service definitions
+
+### Using Generated Code
+
+The generated code provides:
+- Message types for requests and responses
+- gRPC client and server interfaces
+- Helper functions for creating clients and servers
+
+Example usage:
+```go
+import (
+    pb "github.com/adil-faiyaz98/money-pulse/proto/accounts/v1"
+)
+
+// Create a gRPC client
+client := pb.NewAccountServiceClient(conn)
+
+// Call a service method
+account, err := client.CreateAccount(ctx, &pb.CreateAccountRequest{
+    UserId: "user-123",
+    Name: "Savings Account",
+    Type: pb.AccountType_ACCOUNT_TYPE_SAVINGS,
+    Currency: "USD",
+})
+```
+
 ## Configuration
 
 The service can be configured using environment variables:

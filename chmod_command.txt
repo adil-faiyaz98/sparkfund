@@ -1,0 +1,2 @@
+# After creating the file, make it executable with:
+chmod +x run.sh
