@@ -394,101 +394,101 @@ func (h *Handler) Login(c *gin.Context) {
 		return": token,
 	}"user":  user,
 	})
+	// Get existing user
+	user, err := h.userRepo.GetByID(c.Request.Context(), userID)
+	if err != nil || user == nil {eving the current authenticated user
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return:= getUserIDFromContext(c)
 	}
-	
+	user, err := h.userRepo.GetByID(c.Request.Context(), userID)
 	// Update fields if provided
-	if req.Amount != nil {
-		transaction.Amount = *req.Amount
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch user"})
+		return
 	}
-	
-	if req.Description != nil {
-		transaction.Description = *req.Description
+
+	if user == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
 	}
-	
-	if req.Date != nil {
-		date, err := time.Parse("2006-01-02", *req.Date)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format. Use YYYY-MM-DD"})
+
+	// Don't return the password hash
+	user.Password = ""
+
+	c.JSON(http.StatusOK, user)
+}
+
+// UpdateCurrentUser handles updating the current user's profile
+func (h *Handler) UpdateCurrentUser(c *gin.Context) {
+	userID := getUserIDFromContext(c)
+
+	var req struct {
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Email     string `json:"email"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get existing user
+	user, err := h.userRepo.GetByID(c.Request.Context(), userID)
+	if err != nil || user == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	// Update fields if provided
+	if req.FirstName != "" {
+		user.FirstName = req.FirstName
+	}
+	if req.LastName != "" {
+		user.LastName = req.LastName
+	}
+	if req.Email != "" && req.Email != user.Email {
+		// Check if email is already taken
+		existingUser, err := h.userRepo.GetByEmail(c.Request.Context(), req.Email)
+		if err == nil && existingUser != nil && existingUser.ID != user.ID {
+			c.JSON(http.StatusConflict, gin.H{"error": "email already in use"})
 			return
 		}
-		transaction.Date = date
+		user.Email = req.Email
 	}
-	
-	if req.CategoryID != nil {
-		transaction.CategoryID = *req.CategoryID
+
+	if err := h.userRepo.Update(c.Request.Context(), user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+		return
 	}
-	
-	if req.Type != nil {
-		if *req.Type != "income" && *req.Type != "expense" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Type must be 'income' or 'expense'"})
-			return
-		}
-		transaction.Type = *req.Type
-	}
-	
-	// Save changes
-	if err := h.transactionRepo.Update(transaction); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
+
+	// Don't return the password hash
+	user.Password = ""
+
+	c.JSON(http.StatusOK, user)
+}
+
+// GetTransaction handles retrieving a single transaction by ID
+func (h *Handler) GetTransaction(c *gin.Context) {
+	userID := getUserIDFromContext(c)
+	transactionID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction ID"})
 		return
 	}
 	
-	c.JSON(http.StatusOK, transaction)
-}
-
-// DeleteTransaction handles deleting a transaction
-func (h *Handler) DeleteTransaction(c *gin.Context) {
-	userID := getUserIDFromContext(c)(c)
-	transactionID, err := strconv.ParseUint(c.Param("id"), 10, 64)    
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction ID"})l {
-		returngories"})
-	}return
-	  }
-	// Check if transaction exists    
-	transaction, err := h.transactionRepo.GetByID(uint(transactionID))es)
+	transaction, err := h.transactionRepo.GetByID(uint(transactionID))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
 		return
-	} *gin.Context) {
-	    userID := getUserIDFromContext(c)
+	}
+	
 	// Verify transaction's account belongs to user
 	account, err := h.accountRepo.GetByID(transaction.AccountID)
-	if err != nil || account.UserID != userID {ame" binding:"required"`
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})color" binding:"required,hexcolor"`
-		return      Type  string `json:"type" binding:"required,oneof=income expense"`
-	}    }
-	
-	// Delete transaction
-	if err := h.transactionRepo.Delete(uint(transactionID)); err != nil {c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete transaction"})      return
-		return    }
+	if err != nil || account.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
 	}
-	dels.Category{
-	c.JSON(http.StatusOK, gin.H{"message": "Transaction deleted successfully"})Name,
-}.Color,
-eq.Type,
-// Helper functions for authentication      UserID: userID,
-func hashPassword(password string) (string, error) {    }
-	// Implement password hashing with bcrypt or similar
-	// This is a placeholder for the actual implementation
-	return password, nil // Replace with actual hashingc.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create category"})
-}      return
-    }
-func checkPasswordHash(password, hash string) bool {
-	// Implement password verification   c.JSON(http.StatusCreated, category)
-	// This is a placeholder for the actual implementation}
-	return password == hash // Replace with actual verification
-}
- *gin.Context) {
-func generateToken(userID uint) (string, error) {    userID := getUserIDFromContext(c)
-	// Implement JWT token generation
-	// This is a placeholder for the actual implementationl {
-	return "jwt_token_placeholder", nil // Replace with actual JWT generation
-}return
-  }
-// Category handlers    
-func (h *Handler) GetCategories(c *gin.Context) {and belongs to user
-	userID := getUserIDFromContext(c)   category, err := h.categoryRepo.GetByID(uint(categoryID))
+	
     if err != nil {
 	categories, err := h.categoryRepo.GetCategories(c.Request.Context(), userID): "Category not found"})
 	if err != nil {
