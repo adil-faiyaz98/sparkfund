@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 )
 
-// Response is of type APIGatewayProxyResponse since we're leveraging API Gateway
+// Response is of type APIGatewayProxyResponse since we're leveraging API Gateway REST API
 type Response events.APIGatewayProxyResponse
 
 // CloudWatchClient represents the CloudWatch client
@@ -52,9 +51,13 @@ func (c *CloudWatchClient) PutMetric(namespace, metricName string, value float64
 }
 
 // Handler is our lambda handler invoked by the `lambda.Start` function call
+// This function handles REST API requests coming from API Gateway
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
 	startTime := time.Now()
-	log.Printf("Processing Lambda request %s\n", request.RequestContext.RequestID)
+	log.Printf("Processing REST request %s, path: %s, method: %s\n",
+		request.RequestContext.RequestID,
+		request.Path,
+		request.HTTPMethod)
 
 	// Initialize CloudWatch client
 	cwClient, err := NewCloudWatchClient()
@@ -63,26 +66,22 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (Respon
 		// Continue execution even if CloudWatch client creation fails
 	}
 
-	// Your application logic goes here
-	responseBody := map[string]interface{}{
-		"message": "Money-Pulse Lambda function executed successfully!",
-		"request": request.Path,
-	}
+	// Route REST requests based on path and HTTP method
+	var responseBody map[string]interface{}
 
-	body, err := json.Marshal(responseBody)
 	if err != nil {
-		return Response{StatusCode: 500}, err
-	}
-
-	// Record execution time and invocation count as CloudWatch metrics
-	if cwClient != nil {
-		execTime := time.Since(startTime).Milliseconds()
-		if err := cwClient.PutMetric("MoneyPulseMetrics", "LambdaExecutionTime", float64(execTime), "Milliseconds"); err != nil {
-			log.Printf("Error publishing execution time metric: %v", err)
-		}
-
-		if err := cwClient.PutMetric("MoneyPulseMetrics", "APIInvocationCount", 1.0, "Count"); err != nil {
-			log.Printf("Error publishing invocation count metric: %v", err)
+	// Simple routing example - expand as needed for your REST APIe{StatusCode: 500}, err
+	switch {
+	case request.HTTPMethod == "GET" && request.Path == "/health":
+		responseBody = map[string]interface{}{	// Record execution time and invocation count as CloudWatch metrics
+			"status": "healthy",
+		}nce(startTime).Milliseconds()
+	default:, "LambdaExecutionTime", float64(execTime), "Milliseconds"); err != nil {
+		// Default handler
+		responseBody = map[string]interface{}{
+			"message": "Money-Pulse REST API executed successfully!",
+			"path": request.Path,		if err := cwClient.PutMetric("MoneyPulseMetrics", "APIInvocationCount", 1.0, "Count"); err != nil {
+			"method": request.HTTPMethod,
 		}
 	}
 
