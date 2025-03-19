@@ -1,14 +1,22 @@
-FROM golang:1.20-alpine
+FROM nginx:alpine
 
-WORKDIR /app
+# Install required modules
+RUN apk add --no-cache \
+    nginx-mod-http-lua \
+    nginx-mod-http-echo \
+    nginx-mod-http-upstream-fair \
+    nginx-mod-http-cache-purge
 
-COPY go.mod go.sum ./
-RUN go mod download
+# Copy custom configuration
+COPY nginx.conf /etc/nginx/nginx.conf
 
-COPY . .
+# Create cache directory
+RUN mkdir -p /tmp/nginx_cache && \
+    chown -R nginx:nginx /tmp/nginx_cache
 
-RUN go build -o main .
+# Expose ports
+EXPOSE 80 443
 
-EXPOSE 8080
-
-CMD ["./main"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s \
+    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1

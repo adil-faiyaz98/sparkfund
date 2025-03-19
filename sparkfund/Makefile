@@ -1,53 +1,72 @@
-.PHONY: build run test clean proto docker-up docker-down lint
+.PHONY: build run test clean migrate-up migrate-down lint mock dev dev-down fmt check help
 
-all: build
+# Build variables
+BINARY_NAME=email-service
+MAIN_FILE=cmd/main.go
 
-# Build all services
+# Go commands
+GOCMD=go
+GOBUILD=$(GOCMD) build
+GOTEST=$(GOCMD) test
+GOCLEAN=$(GOCMD) clean
+GOMOD=$(GOCMD) mod
+GOTIDY=$(GOCMD) mod tidy
+
+# Build the application
 build:
-    @echo "Building all services..."
-    @for dir in api-gateway kyc-service aml-service fraud-detection-service credit-scoring-service risk-management-service notification-service consent-management-service logging-service security-service email-service; do \
-        echo "Building $$dir..."; \
-        (cd $$dir && go build -o bin/service ./cmd/main.go); \
-    done
+	$(GOBUILD) -o $(BINARY_NAME) $(MAIN_FILE)
 
-# Run tests for all services
+# Run the application
+run: build
+	./$(BINARY_NAME)
+
+# Run tests
 test:
-    @echo "Running tests for all services..."
-    @for dir in api-gateway kyc-service aml-service fraud-detection-service credit-scoring-service risk-management-service notification-service consent-management-service logging-service security-service email-service; do \
-        echo "Testing $$dir..."; \
-        (cd $$dir && go test ./...); \
-    done
+	$(GOTEST) -v ./...
 
 # Clean build artifacts
 clean:
-    @echo "Cleaning build artifacts..."
-    @for dir in api-gateway kyc-service aml-service fraud-detection-service credit-scoring-service risk-management-service notification-service consent-management-service logging-service security-service email-service; do \
-        echo "Cleaning $$dir..."; \
-        (cd $$dir && rm -rf bin); \
-    done
+	$(GOCLEAN)
+	rm -f $(BINARY_NAME)
 
-# Start all services with Docker Compose
-docker-up:
-    docker-compose up -d
+# Run database migrations
+migrate-up:
+	migrate -path migrations -database "postgres://postgres:postgres@localhost:5432/email_service?sslmode=disable" up
 
-# Stop all services
-docker-down:
-    docker-compose down
+migrate-down:
+	migrate -path migrations -database "postgres://postgres:postgres@localhost:5432/email_service?sslmode=disable" down
 
-# Run linting on all services
-lint:
-    @echo "Running linters..."
-    @for dir in api-gateway kyc-service aml-service fraud-detection-service credit-scoring-service risk-management-service notification-service consent-management-service logging-service security-service email-service; do \
-        echo "Linting $$dir..."; \
-        (cd $$dir && golangci-lint run); \
-    done
+# Generate mocks
+mock:
+	mockgen -source=internal/repositories/repository.go -destination=internal/repositories/mock_repository.go
 
-# Create a new service from template
-new-service:
-    @read -p "Enter service name: " name; \
-    mkdir -p $$name/cmd $$name/internal/config $$name/internal/handlers $$name/internal/services $$name/internal/repositories $$name/internal/models $$name/internal/utils $$name/pkg; \
-    cp templates/main.go.tmpl $$name/cmd/main.go; \
-    cp templates/go.mod.tmpl $$name/go.mod; \
-    cp templates/Dockerfile.tmpl $$name/Dockerfile; \
-    sed -i "s/{{SERVICE_NAME}}/$$name/g" $$name/cmd/main.go $$name/go.mod; \
-    echo "Created new service: $$name"
+# Start development environment
+dev:
+	docker-compose up -d
+
+# Stop development environment
+dev-down:
+	docker-compose down
+
+# Format code
+fmt:
+	$(GOCMD) fmt ./...
+
+# Run all checks
+check: fmt lint test
+
+# Show help
+help:
+	@echo "Available commands:"
+	@echo "  build        - Build the application"
+	@echo "  run          - Build and run the application"
+	@echo "  test         - Run tests"
+	@echo "  clean        - Clean build artifacts"
+	@echo "  migrate-up   - Run database migrations up"
+	@echo "  migrate-down - Run database migrations down"
+	@echo "  mock         - Generate mocks"
+	@echo "  dev          - Start development environment"
+	@echo "  dev-down     - Stop development environment"
+	@echo "  fmt          - Format code"
+	@echo "  check        - Run all checks (fmt, lint, test)"
+	@echo "  help         - Show this help message"
