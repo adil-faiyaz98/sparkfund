@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kyc-service
+      - aml-service
+      - fraud-detection-service
+      - credit-scoring-service
+      - risk-management-service
+      - notification-service
+      - consent-management-service
+      - logging-service
+      - security-service
+      - email-service
+      - blockchain-service
+
+  kyc-service:
+    build: ./kyc-service
+    ports:
+      - "8081:8080"
+
+  aml-service:
+    build: ./aml-service
+    ports:
+      - "8082:8080"
+
+  fraud-detection-service:
+    build: ./fraud-detection-service
+    ports:
+      - "8083:8080"
+
+  credit-scoring-service:
+    build: ./credit-scoring-service
+    ports:
+      - "8084:8080"
+
+  risk-management-service:
+    build: ./risk-management-service
+    ports:
+      - "8085:8080"
+
+  notification-service:
+    build: ./notification-service
+    ports:
+      - "8086:8080"
+
+  consent-management-service:
+    build: ./consent-management-service
+    ports:
+      - "8087:8080"
+
+  logging-service:
+    build: ./logging-service
+    ports:
+      - "8088:8080"
+
+  security-service:
+    build: ./security-service
+    ports:
+      - "8089:8080"
+
+  email-service:
+    build: ./email-service
+    ports:
+      - "8090:8080"
+
+  blockchain-service:
+    build: ./blockchain-service
+    ports:
+      - "8091:8080"
