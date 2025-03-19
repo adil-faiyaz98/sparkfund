@@ -19,17 +19,16 @@ const (
 type Account struct {
 	ID            uuid.UUID
 	UserID        uuid.UUID
-	Type          AccountType
 	Name          string
-	AccountNumber string
+	Type          AccountType
 	Balance       float64
 	Currency      string
-	Status        string
+	AccountNumber string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
 
-func NewAccount(userID uuid.UUID, accountType AccountType, name string) (*Account, error) {
+func NewAccount(userID uuid.UUID, name string, accountType AccountType, currency string) (*Account, error) {
 	if name == "" {
 		return nil, fmt.Errorf("account name cannot be empty")
 	}
@@ -38,18 +37,46 @@ func NewAccount(userID uuid.UUID, accountType AccountType, name string) (*Accoun
 		return nil, fmt.Errorf("invalid account type: %s", accountType)
 	}
 
+	if currency == "" {
+		return nil, fmt.Errorf("currency cannot be empty")
+	}
+
 	now := time.Now()
 	return &Account{
-		ID:        uuid.New(),
-		UserID:    userID,
-		Type:      accountType,
-		Name:      name,
-		Balance:   0,
-		Currency:  "USD",
-		Status:    "ACTIVE",
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:            uuid.New(),
+		UserID:        userID,
+		Name:          name,
+		Type:          accountType,
+		Balance:       0,
+		Currency:      currency,
+		AccountNumber: generateAccountNumber(),
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}, nil
+}
+
+func (a *Account) Update(name string, accountType AccountType) error {
+	if name == "" {
+		return fmt.Errorf("account name cannot be empty")
+	}
+
+	if !isValidAccountType(accountType) {
+		return fmt.Errorf("invalid account type: %s", accountType)
+	}
+
+	a.Name = name
+	a.Type = accountType
+	a.UpdatedAt = time.Now()
+	return nil
+}
+
+func (a *Account) UpdateBalance(amount float64) error {
+	if amount < 0 && a.Balance+amount < 0 {
+		return fmt.Errorf("insufficient funds")
+	}
+	a.Balance += amount
+	a.UpdatedAt = time.Now()
+	return nil
 }
 
 func isValidAccountType(accountType AccountType) bool {
@@ -62,4 +89,8 @@ func isValidAccountType(accountType AccountType) bool {
 	default:
 		return false
 	}
+}
+
+func generateAccountNumber() string {
+	return fmt.Sprintf("ACC%s", uuid.New().String()[:8])
 }

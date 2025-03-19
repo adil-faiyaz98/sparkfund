@@ -140,6 +140,112 @@ services:
     networks:
       - money-pulse-network
 
+  auth-service::
+    build: consul:latest
+      context: ./auth-servicese-consul      context: ./auth-service
+    container_name: money-pulse-auth-servicee
+    restart: always
+    ports:600:8600/tcp"
+      - "8085:8085"udp"      - "8085:8085"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=auth_db
+      - ACCESS_TOKEN_SECRET=your_secret_key_here
+      - REFRESH_TOKEN_SECRET=your_refresh_secret_key
+      - SERVICE_HOST=auth-service
+      - CONSUL_ADDR=consul:8500
+    depends_on:
+      - postgres
+      - consul
+    networks:ridge  money-pulse-network:networks:  postgres_data:volumes:      - money-pulse-network    networks:      - CONSUL_BIND_INTERFACE=eth0    environment:    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"    environment:
+      - money-pulse-network
+      - DB_PORT=5432
+  prometheus:DB_USER=postgres
+    image: prom/prometheus:latestORD=postgres
+    container_name: money-pulse-prometheus      - DB_NAME=auth_db
+    ports:CCESS_TOKEN_SECRET=your_secret_key_here
+      - "9090:9090"SECRET=your_refresh_secret_key
+    volumes:ST=auth-service
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml      - CONSUL_ADDR=consul:8500
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    driver: bridge  money-pulse-network:networks:  postgres_data:volumes:      - money-pulse-network    networks:      - prometheus      - jaeger    depends_on:      - "8889:8889"  # Prometheus exporter      - "8888:8888"  # Prometheus metrics      - "4318:4318"  # OTLP HTTP      - "4317:4317"  # OTLP gRPC    ports:      - ./observability/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml    volumes:    command: ["--config=/etc/otel-collector-config.yaml"]    container_name: money-pulse-otel-collector    image: otel/opentelemetry-collector:latest  otel-collector:      - money-pulse-network    networks:    command: -config.file=/etc/loki/local-config.yaml      - "3100:3100"    ports:    container_name: money-pulse-loki    image: grafana/loki:latest  loki:      - money-pulse-network    networks:      - COLLECTOR_ZIPKIN_HTTP_PORT=9411    environment:      - "6831:6831/udp"  # Agent      - "14268:14268"  # Collector HTTP      - "16686:16686"  # Jaeger UI    ports:    container_name: money-pulse-jaeger    image: jaegertracing/all-in-one:latest  jaeger:      - money-pulse-network    networks:      - loki      - prometheus    depends_on:      - GF_USERS_ALLOW_SIGN_UP=false      - GF_SECURITY_ADMIN_PASSWORD=admin      - GF_SECURITY_ADMIN_USER=admin    environment:      - ./observability/grafana/provisioning:/etc/grafana/provisioning    volumes:      - "3000:3000"    ports:    container_name: money-pulse-grafana    image: grafana/grafana:latest  grafana:      - money-pulse-network    networks:      - '--web.console.templates=/usr/share/prometheus/consoles'      - '--web.console.libraries=/usr/share/prometheus/console_libraries'      - '--storage.tsdb.path=/prometheus'      - '--config.file=/etc/prometheus/prometheus.yml'    command:    depends_on:
+      - postgres
+      - consul
+    networks:
+      - money-pulse-network
+
 volumes:
   postgres_data:
 

@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package accounts.v1;
+
+option go_package = "github.com/adil-faiyaz98/money-pulse/proto/accounts/v1;accountsv1";
+
+// AccountService provides methods to manage accounts
+service AccountService {
+  // CreateAccount creates a new account
+  rpc CreateAccount(CreateAccountRequest) returns (Account) {}
+  
+  // GetAccount retrieves an account by ID
+  rpc GetAccount(GetAccountRequest) returns (Account) {}
+  
+  // GetUserAccounts retrieves all accounts for a user
+  rpc GetUserAccounts(GetUserAccountsRequest) returns (GetUserAccountsResponse) {}
+  
+  // UpdateAccount updates an existing account
+  rpc UpdateAccount(UpdateAccountRequest) returns (Account) {}
+  
+  // DeleteAccount deletes an account
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse) {}
+  
+  // GetAccountByNumber retrieves an account by account number
+  rpc GetAccountByNumber(GetAccountByNumberRequest) returns (Account) {}
+  
+  // UpdateBalance updates the balance of an account
+  rpc UpdateBalance(UpdateBalanceRequest) returns (Account) {}
+}
+
+// Account represents a bank account
+message Account {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  string account_number = 4;
+  AccountType type = 5;
+  double balance = 6;
+  string currency = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+}
+
+// AccountType represents the type of account
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  ACCOUNT_TYPE_CHECKING = 1;
+  ACCOUNT_TYPE_SAVINGS = 2;
+  ACCOUNT_TYPE_CREDIT = 3;
+  ACCOUNT_TYPE_INVESTMENT = 4;
+}
+
+// CreateAccountRequest represents the request to create a new account
+message CreateAccountRequest {
+  string user_id = 1;
+  string name = 2;
+  AccountType type = 3;
+  string currency = 4;
+}
+
+// GetAccountRequest represents the request to get an account by ID
+message GetAccountRequest {
+  string id = 1;
+}
+
+// GetUserAccountsRequest represents the request to get all accounts for a user
+message GetUserAccountsRequest {
+  string user_id = 1;
+}
+
+// GetUserAccountsResponse represents the response containing all accounts for a user
+message GetUserAccountsResponse {
+  repeated Account accounts = 1;
+}
+
+// UpdateAccountRequest represents the request to update an account
+message UpdateAccountRequest {
+  string id = 1;
+  string name = 2;
+  AccountType type = 3;
+}
+
+// DeleteAccountRequest represents the request to delete an account
+message DeleteAccountRequest {
+  string id = 1;
+}
+
+// DeleteAccountResponse represents the response to delete an account
+message DeleteAccountResponse {}
+
+// GetAccountByNumberRequest represents the request to get an account by account number
+message GetAccountByNumberRequest {
+  string account_number = 1;
+}
+
+// UpdateBalanceRequest represents the request to update an account's balance
+message UpdateBalanceRequest {
+  string id = 1;
+  double amount = 2;
+} 

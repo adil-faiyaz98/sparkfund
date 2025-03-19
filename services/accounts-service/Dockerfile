@@ -1,30 +1,41 @@
+# Build stage
 FROM golang:1.21-alpine AS builder
 
+# Install build dependencies
+RUN apk add --no-cache git make protobuf-dev
+
+# Set working directory
 WORKDIR /app
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
+
 # Download dependencies
 RUN go mod download
 
 # Copy source code
 COPY . .
 
+# Generate protobuf code
+RUN make proto
+
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o accounts-service ./cmd/server
+RUN make build
 
-# Use a minimal alpine image for the final container
-FROM alpine:3.18
+# Final stage
+FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata
 
+# Set working directory
 WORKDIR /app
 
-# Copy the binary from the builder stage
-COPY --from=builder /app/accounts-service .
+# Copy binary from builder
+COPY --from=builder /app/bin/accounts-service .
 
-# Expose ports for HTTP and gRPC
-EXPOSE 8080 50051
+# Expose gRPC port
+EXPOSE 50051
 
-# Command to run the executable
+# Run the application
 CMD ["./accounts-service"]
