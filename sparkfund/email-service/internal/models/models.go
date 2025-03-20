@@ -41,16 +41,18 @@ type EmailResponse struct {
 
 // EmailLog represents a log entry for an email
 type EmailLog struct {
-	ID          string    `json:"id" db:"id"`
-	To          []string  `json:"to" db:"to_addresses"`
-	From        string    `json:"from" db:"from_address"`
-	Subject     string    `json:"subject" db:"subject"`
-	Body        string    `json:"body" db:"body"`
-	ContentType string    `json:"content_type" db:"content_type"`
-	Status      string    `json:"status" db:"status"`
-	Error       string    `json:"error,omitempty" db:"error"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	ID          string      `json:"id" db:"id"`
+	Recipients  []string    `json:"recipients" db:"recipients"`
+	Cc          []string    `json:"cc,omitempty" db:"cc"`
+	Bcc         []string    `json:"bcc,omitempty" db:"bcc"`
+	From        string      `json:"from" db:"from_address"`
+	Subject     string      `json:"subject" db:"subject"`
+	Body        string      `json:"body" db:"body"`
+	ContentType string      `json:"content_type" db:"content_type"`
+	Status      EmailStatus `json:"status" db:"status"`
+	Error       string      `json:"error,omitempty" db:"error"`
+	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
 }
 
 // CreateTemplateRequest represents the request body for creating a template

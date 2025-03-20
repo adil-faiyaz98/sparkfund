@@ -1,11 +1,20 @@
 package config
 
 import (
+	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
+
+// RetryConfig holds retry configuration
+type RetryConfig struct {
+	MaxRetries     int           `json:"max_retries"`
+	InitialBackoff time.Duration `json:"initial_backoff"`
+	MaxBackoff     time.Duration `json:"max_backoff"`
+}
 
 // Config holds all configuration for the email service
 type Config struct {
@@ -14,7 +23,10 @@ type Config struct {
 	Kafka       KafkaConfig
 	SMTP        SMTPConfig
 	Jaeger      JaegerConfig
+	Retry       RetryConfig
 	Environment string
+	Port             int
+	ShutdownTimeout  time.Duration
 }
 
 // ServerConfig holds HTTP server configuration
@@ -28,13 +40,10 @@ type ServerConfig struct {
 // DatabaseConfig holds PostgreSQL configuration
 type DatabaseConfig struct {
 	Host     string
-	Port     int
+	Port     string
 	User     string
 	Password string
 	DBName   string
-	SSLMode  string
-	MaxConns int
-	MaxIdle  int
 }
 
 // KafkaConfig holds Kafka configuration
@@ -54,33 +63,38 @@ type SMTPConfig struct {
 
 // JaegerConfig holds Jaeger configuration
 type JaegerConfig struct {
-	Endpoint string
+	Endpoint    string
+	ServiceName string
 }
 
 // LoadConfig loads configuration from environment variables
 func LoadConfig() (*Config, error) {
+	if err := godotenv.Load(); err != nil {
+		return nil, fmt.Errorf("error loading .env file: %w", err)
+	}
+
 	cfg := &Config{
-		Environment: getEnvOrDefault("ENVIRONMENT", "development"),
+		Port:            getEnvIntOrDefault("SERVER_PORT", 8080),
+		ShutdownTimeout: getEnvDurationOrDefault("SHUTDOWN_TIMEOUT", 30*time.Second),
+		Database: DatabaseConfig{
+			Host:     getEnvOrDefault("DB_HOST", "localhost"),
+			Port:     getEnvOrDefault("DB_PORT", "5432"),
+			User:     getEnvOrDefault("DB_USER", "postgres"),
+			Password: getEnvOrDefault("DB_PASSWORD", "postgres"),
+			DBName:   getEnvOrDefault("DB_NAME", "email_service"),
+		},
+		Jaeger: JaegerConfig{
+			Endpoint:    getEnvOrDefault("JAEGER_ENDPOINT", "http://localhost:14268/api/traces"),
+			ServiceName: getEnvOrDefault("JAEGER_SERVICE_NAME", "email-service"),
+		},
 	}
 
 	// Server config
 	cfg.Server = ServerConfig{
-		Port:         getEnvIntOrDefault("SERVER_PORT", 8080),
+		Port:         cfg.Port,
 		ReadTimeout:  getEnvDurationOrDefault("SERVER_READ_TIMEOUT", 10*time.Second),
 		WriteTimeout: getEnvDurationOrDefault("SERVER_WRITE_TIMEOUT", 10*time.Second),
 		IdleTimeout:  getEnvDurationOrDefault("SERVER_IDLE_TIMEOUT", 120*time.Second),
-	}
-
-	// Database config
-	cfg.Database = DatabaseConfig{
-		Host:     getEnvOrDefault("DB_HOST", "localhost"),
-		Port:     getEnvIntOrDefault("DB_PORT", 5432),
-		User:     getEnvOrDefault("DB_USER", "postgres"),
-		Password: getEnvOrDefault("DB_PASSWORD", "postgres"),
-		DBName:   getEnvOrDefault("DB_NAME", "email_service"),
-		SSLMode:  getEnvOrDefault("DB_SSL_MODE", "disable"),
-		MaxConns: getEnvIntOrDefault("DB_MAX_CONNS", 10),
-		MaxIdle:  getEnvIntOrDefault("DB_MAX_IDLE", 5),
 	}
 
 	// Kafka config
@@ -98,9 +112,11 @@ func LoadConfig() (*Config, error) {
 		From:     getEnvOrDefault("SMTP_FROM", "noreply@sparkfund.com"),
 	}
 
-	// Jaeger config
-	cfg.Jaeger = JaegerConfig{
-		Endpoint: getEnvOrDefault("JAEGER_ENDPOINT", "http://localhost:14268/api/traces"),
+	// Retry config
+	cfg.Retry = RetryConfig{
+		MaxRetries:     getEnvIntOrDefault("RETRY_MAX_RETRIES", 3),
+		InitialBackoff: getEnvDurationOrDefault("RETRY_INITIAL_BACKOFF", 1*time.Second),
+		MaxBackoff:     getEnvDurationOrDefault("RETRY_MAX_BACKOFF", 30*time.Second),
 	}
 
 	return cfg, nil
@@ -116,8 +132,9 @@ func getEnvOrDefault(key, defaultValue string) string {
 
 func getEnvIntOrDefault(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
+		var result int
+		if _, err := fmt.Sscanf(value, "%d", &result); err == nil {
+			return result
 		}
 	}
 	return defaultValue
@@ -137,4 +154,9 @@ func getEnvSliceOrDefault(key string, defaultValue []string) []string {
 		return strings.Split(value, ",")
 	}
 	return defaultValue
+}
+
+func (c *Config) GetDSN() string {
+	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		c.Database.Host, c.Database.Port, c.Database.User, c.Database.Password, c.Database.DBName)
 }

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/models"
+	"github.com/sparkfund/email-service/internal/models"
 )
 
 var (

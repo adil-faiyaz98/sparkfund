@@ -8,8 +8,7 @@ import (
 	"syscall"
 
 	"github.com/IBM/sarama"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/kafka"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/repositories"
+	"github.com/sparkfund/email-service/internal/kafka"
 	"go.uber.org/zap"
 )
 
@@ -26,9 +25,6 @@ func main() {
 	// Initialize logger
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
-
-	// Initialize repository
-	repo := repositories.NewPostgresRepository(nil) // TODO: Initialize database connection
 
 	// Initialize Kafka consumer
 	consumer, err := kafka.NewConsumer([]string{"localhost:9092"}, []string{"email-queue"}, func(ctx context.Context, msg *sarama.ConsumerMessage) error {

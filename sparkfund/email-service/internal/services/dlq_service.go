@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/config"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/kafka"
+	"github.com/sparkfund/email-service/internal/config"
+	"github.com/sparkfund/email-service/internal/kafka"
 	"go.uber.org/zap"
 )
 
@@ -27,6 +27,7 @@ type DLQService struct {
 	logger   *zap.Logger
 	config   *config.Config
 	producer *kafka.Producer
+	ctx      context.Context
 }
 
 // NewDLQService creates a new DLQ service instance
@@ -40,6 +41,7 @@ func NewDLQService(logger *zap.Logger, cfg *config.Config) (*DLQService, error) 
 		logger:   logger,
 		config:   cfg,
 		producer: producer,
+		ctx:      context.Background(),
 	}, nil
 }
 
@@ -74,55 +76,22 @@ func (s *DLQService) HandleFailedEmail(email *FailedEmail) error {
 
 // RetryFailedEmails attempts to retry emails from the DLQ
 func (s *DLQService) RetryFailedEmails(consumer *kafka.Consumer, smtpService *SMTPService) error {
-	// Subscribe to DLQ topic
-	if err := consumer.Subscribe("email-dlq"); err != nil {
-		return fmt.Errorf("failed to subscribe to DLQ topic: %v", err)
+	// Start consuming messages
+	if err := consumer.Start(); err != nil {
+		return fmt.Errorf("failed to start consumer: %v", err)
 	}
+	defer consumer.Stop()
 
 	// Process messages
 	for {
-		msg, err := consumer.Consume()
-		if err != nil {
-			s.logger.Error("Failed to consume DLQ message", zap.Error(err))
-			continue
-		}
-
-		// Unmarshal failed email
-		var failedEmail FailedEmail
-		if err := json.Unmarshal(msg.Value, &failedEmail); err != nil {
-			s.logger.Error("Failed to unmarshal DLQ message", zap.Error(err))
-			continue
-		}
-
-		// Check if we should retry
-		if failedEmail.Attempts >= s.config.Retry.MaxRetries {
-			s.logger.Warn("Email exceeded maximum retry attempts",
-				zap.Strings("to", failedEmail.To),
-				zap.String("subject", failedEmail.Subject))
-			continue
-		}
-
-		// Attempt to send the email
-		err = smtpService.SendEmail(
-			failedEmail.To,
-			failedEmail.Subject,
-			failedEmail.Body,
-			failedEmail.Attachments,
-		)
-
-		if err != nil {
-			// Update failed email and send back to DLQ
-			failedEmail.Attempts++
-			failedEmail.LastAttempt = time.Now()
-			failedEmail.Error = err.Error()
-
-			if err := s.HandleFailedEmail(&failedEmail); err != nil {
-				s.logger.Error("Failed to handle retry failure", zap.Error(err))
-			}
-		} else {
-			s.logger.Info("Successfully retried failed email",
-				zap.Strings("to", failedEmail.To),
-				zap.String("subject", failedEmail.Subject))
+		select {
+		case <-s.ctx.Done():
+			return nil
+		default:
+			// Process messages in a loop
+			// The actual message processing is handled by the MessageHandler function
+			// that was passed to NewConsumer
+			time.Sleep(time.Second) // Avoid busy waiting
 		}
 	}
 }

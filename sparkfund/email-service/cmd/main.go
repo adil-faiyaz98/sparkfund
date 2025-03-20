@@ -8,19 +8,20 @@ import (
 	"os/signal"
 	"syscall"
 
-	_ "github.com/adil-faiyaz98/sparkfund/email-service/docs"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/config"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/handlers"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/repository"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/routes"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	_ "github.com/sparkfund/email-service/docs"
+	"github.com/sparkfund/email-service/internal/config"
+	"github.com/sparkfund/email-service/internal/handlers"
+	"github.com/sparkfund/email-service/internal/repository"
+	"github.com/sparkfund/email-service/internal/routes"
+	"github.com/sparkfund/email-service/internal/services"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.uber.org/zap"
@@ -43,7 +44,10 @@ func main() {
 	defer logger.Sync()
 
 	// Load configuration
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		logger.Fatal("Failed to load configuration", zap.Error(err))
+	}
 
 	// Connect to database
 	db, err := sqlx.Connect("postgres", cfg.GetDSN())
@@ -56,7 +60,10 @@ func main() {
 	repo := repository.NewPostgresRepository(db)
 
 	// Initialize service
-	emailService := services.NewEmailService(logger, repo, cfg.KafkaTopic)
+	emailService, err := services.NewService(logger, cfg, repo)
+	if err != nil {
+		logger.Fatal("Failed to initialize service", zap.Error(err))
+	}
 
 	// Initialize handler
 	handler := handlers.NewHandler(logger, emailService)
@@ -107,17 +114,24 @@ func main() {
 }
 
 func initTracer(cfg *config.Config) (*sdktrace.TracerProvider, error) {
-	exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(cfg.JaegerEndpoint)))
+	exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(cfg.Jaeger.Endpoint)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create jaeger exporter: %w", err)
+	}
+
+	res, err := resource.New(context.Background(),
+		resource.WithAttributes(
+			semconv.ServiceNameKey.String(cfg.Jaeger.ServiceName),
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(
-			semconv.ServiceNameKey.String(cfg.JaegerService),
-		),
+		sdktrace.WithResource(res),
 	)
 
 	otel.SetTracerProvider(tp)

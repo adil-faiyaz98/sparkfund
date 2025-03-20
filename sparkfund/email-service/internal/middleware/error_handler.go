@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/errors"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sparkfund/email-service/internal/errors"
+	"github.com/sparkfund/email-service/internal/services"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )

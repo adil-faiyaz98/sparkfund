@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/handlers"
 	"github.com/gin-gonic/gin"
+	"github.com/sparkfund/email-service/internal/handlers"
 )
 
 // SetupRoutes configures all the routes for the application

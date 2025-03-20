@@ -1,8 +1,6 @@
-module github.com/adil-faiyaz98/sparkfund/email-service
+module github.com/sparkfund/email-service
 
-go 1.23.0
-
-toolchain go1.24.0
+go 1.21
 
 require (
 	github.com/IBM/sarama v1.45.1
@@ -10,6 +8,7 @@ require (
 	github.com/go-playground/validator/v10 v10.14.0
 	github.com/google/uuid v1.3.0
 	github.com/jmoiron/sqlx v1.3.5
+	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 	github.com/prometheus/client_golang v1.15.1
 	github.com/swaggo/files v1.0.1
@@ -20,7 +19,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.21.0
 	go.opentelemetry.io/otel/trace v1.21.0
 	go.uber.org/zap v1.24.0
-	golang.org/x/time v0.11.0
+	golang.org/x/time v0.3.0
 )
 
 require (

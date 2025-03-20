@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/config"
+	"github.com/sparkfund/email-service/internal/config"
 	"go.uber.org/zap"
 )
 
@@ -49,7 +49,7 @@ func NewSMTPService(logger *zap.Logger, cfg *config.Config) *SMTPService {
 // SendEmail sends an email with retries
 func (s *SMTPService) SendEmail(to []string, subject, body string, attachments map[string][]byte) error {
 	var lastErr error
-	interval := s.config.Retry.InitialInterval
+	interval := s.config.Retry.InitialBackoff
 
 	for attempt := 1; attempt <= s.config.Retry.MaxRetries; attempt++ {
 		err := s.sendEmailWithRetry(to, subject, body, attachments)
@@ -70,9 +70,9 @@ func (s *SMTPService) SendEmail(to []string, subject, body string, attachments m
 			zap.Duration("next_retry", interval))
 
 		time.Sleep(interval)
-		interval = time.Duration(float64(interval) * s.config.Retry.Multiplier)
-		if interval > s.config.Retry.MaxInterval {
-			interval = s.config.Retry.MaxInterval
+		interval *= 2 // exponential backoff
+		if interval > s.config.Retry.MaxBackoff {
+			interval = s.config.Retry.MaxBackoff
 		}
 	}
 

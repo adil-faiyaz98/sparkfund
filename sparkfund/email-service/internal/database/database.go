@@ -2,49 +2,30 @@ package database
 
 import (
 	"fmt"
-	"time"
+	"log"
 
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/config"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // Import the PostgreSQL driver
+	"github.com/sparkfund/email-service/internal/config"
 )
 
-// NewDB creates a new database connection with retries
-func NewDB(cfg *config.DatabaseConfig) (*sqlx.DB, error) {
-	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode,
-	)
+// NewDB creates a new database connection.
+func NewDB(cfg config.DatabaseConfig) *sqlx.DB {
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName)
 
-	var db *sqlx.DB
-	var err error
-
-	// Retry connection with exponential backoff
-	for i := 0; i < 5; i++ {
-		db, err = sqlx.Connect("postgres", dsn)
-		if err == nil {
-			break
-		}
-
-		// Wait before retrying
-		time.Sleep(time.Second * time.Duration(1<<uint(i)))
-	}
-
+	db, err := sqlx.Connect("postgres", connStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database after retries: %v", err)
+		log.Fatalf("Error connecting to database: %v", err)
 	}
 
-	// Configure connection pool
-	db.SetMaxOpenConns(cfg.MaxConns)
-	db.SetMaxIdleConns(cfg.MaxIdle)
-	db.SetConnMaxLifetime(time.Hour)
-
-	// Test connection
+	// Test the connection
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %v", err)
+		log.Fatalf("Error pinging database: %v", err)
 	}
 
-	return db, nil
+	log.Println("Connected to database")
+	return db
 }
 
 // CloseDB closes the database connection

@@ -1,8 +1,8 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
-    image: postgres:14-alpine
+    image: postgres:15-alpine
     container_name: sparkfund-postgres
     environment:
       POSTGRES_USER: postgres
@@ -31,17 +31,28 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      - kyc-service
-      - aml-service
-      - fraud-detection-service
-      - credit-scoring-service
-      - risk-management-service
-      - notification-service
-      - consent-management-service
-      - logging-service
-      - security-service
-      - email-service
-      - blockchain-service
+      kyc-service:
+        condition: service_started
+      aml-service:
+        condition: service_started
+      fraud-detection-service:
+        condition: service_started
+      credit-scoring-service:
+        condition: service_started
+      risk-management-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      consent-management-service:
+        condition: service_started
+      logging-service:
+        condition: service_started
+      security-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+      blockchain-service:
+        condition: service_started
 
   kyc-service:
     build: ./kyc-service
@@ -178,10 +189,18 @@ services:
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
-      - DB_NAME=email_db
+      - DB_NAME=email_service
+      - SERVER_PORT=8080
+      - KAFKA_BROKERS=kafka:29092
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_SERVICE_NAME=email-service
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
 
   blockchain-service:
     build: ./blockchain-service
@@ -211,7 +230,8 @@ services:
     depends_on:
       - zookeeper
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:29092 --list"]
+      test:
+        ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:29092 --list"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -235,20 +255,28 @@ services:
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
       - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - "6831:6831/udp"  # jaeger-agent compact thrift
-      - "6832:6832/udp"  # jaeger-agent binary thrift
-      - "5778:5778"      # jaeger-agent configs
-      - "16686:16686"    # jaeger-query
-      - "4317:4317"      # OTLP gRPC
-      - "4318:4318"      # OTLP HTTP
-      - "14250:14250"    # jaeger-agent HTTP
-      - "14268:14268"    # jaeger-collector HTTP
-      - "14269:14269"    # jaeger-collector metrics
-      - "9411:9411"      # Zipkin collector
+      - "6831:6831/udp" # jaeger-agent compact thrift
+      - "6832:6832/udp" # jaeger-agent binary thrift
+      - "5778:5778" # jaeger-agent configs
+      - "16686:16686" # jaeger-query
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "14250:14250" # jaeger-agent HTTP
+      - "14268:14268" # jaeger-collector HTTP
+      - "14269:14269" # jaeger-collector metrics
+      - "9411:9411" # Zipkin collector
     volumes:
       - jaeger_data:/var/lib/jaeger
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:14269/"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:14269/",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -261,12 +289,20 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9090/-/healthy",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -284,7 +320,11 @@ services:
     depends_on:
       - prometheus
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5

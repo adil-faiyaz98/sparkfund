@@ -33,18 +33,30 @@ type Template struct {
 	UpdatedAt   time.Time         `json:"updated_at" db:"updated_at"`
 }
 
+// EmailStatus represents the status of an email
+type EmailStatus string
+
+const (
+	EmailStatusPending   EmailStatus = "pending"
+	EmailStatusSent      EmailStatus = "sent"
+	EmailStatusFailed    EmailStatus = "failed"
+	EmailStatusDelivered EmailStatus = "delivered"
+)
+
 // EmailLog represents a log entry for an email
 type EmailLog struct {
-	ID          string    `json:"id" db:"id"`
-	Recipients  []string  `json:"recipients" db:"recipients"`
-	From        string    `json:"from" db:"from"`
-	Subject     string    `json:"subject" db:"subject"`
-	Body        string    `json:"body" db:"body"`
-	ContentType string    `json:"content_type" db:"content_type"`
-	Status      string    `json:"status" db:"status"`
-	Error       string    `json:"error,omitempty" db:"error"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	ID          string      `json:"id" db:"id"`
+	Recipients  []string    `json:"recipients" db:"recipients"`
+	Cc          []string    `json:"cc,omitempty" db:"cc"`
+	Bcc         []string    `json:"bcc,omitempty" db:"bcc"`
+	From        string      `json:"from" db:"from"`
+	Subject     string      `json:"subject" db:"subject"`
+	Body        string      `json:"body" db:"body"`
+	ContentType string      `json:"content_type" db:"content_type"`
+	Status      EmailStatus `json:"status" db:"status"`
+	Error       string      `json:"error,omitempty" db:"error"`
+	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
 }
 
 // EmailStats represents email statistics

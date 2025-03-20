@@ -3,9 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/models"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/services"
 	"github.com/gin-gonic/gin"
+	"github.com/sparkfund/email-service/internal/models"
+	"github.com/sparkfund/email-service/internal/services"
 	"go.uber.org/zap"
 )
 

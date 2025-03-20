@@ -5,29 +5,29 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/config"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/kafka"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/models"
-	"github.com/adil-faiyaz98/sparkfund/email-service/internal/repositories"
 	"github.com/google/uuid"
+	"github.com/sparkfund/email-service/internal/config"
+	"github.com/sparkfund/email-service/internal/kafka"
+	"github.com/sparkfund/email-service/internal/models"
+	"github.com/sparkfund/email-service/internal/repository"
 	"go.uber.org/zap"
 )
 
 // EmailService defines the interface for email operations
 type EmailService interface {
-	SendEmail(req models.SendEmailRequest) error
-	GetEmailLogs() ([]models.EmailLog, error)
-	CreateTemplate(req models.CreateTemplateRequest) (*models.Template, error)
-	GetTemplate(id string) (*models.Template, error)
-	UpdateTemplate(id string, req models.UpdateTemplateRequest) (*models.Template, error)
-	DeleteTemplate(id string) error
+	SendEmail(ctx context.Context, req models.SendEmailRequest) error
+	GetEmailLogs(ctx context.Context) ([]models.EmailLog, error)
+	CreateTemplate(ctx context.Context, req models.CreateTemplateRequest) (*models.Template, error)
+	GetTemplate(ctx context.Context, id string) (*models.Template, error)
+	UpdateTemplate(ctx context.Context, id string, req models.UpdateTemplateRequest) (*models.Template, error)
+	DeleteTemplate(ctx context.Context, id string) error
 }
 
 // Service implements the EmailService interface
 type Service struct {
 	logger      *zap.Logger
 	config      *config.Config
-	repo        repositories.Repository
+	repo        repository.Repository
 	producer    *kafka.Producer
 	authService AuthService
 }
@@ -40,7 +40,7 @@ type AuthService interface {
 func NewService(
 	logger *zap.Logger,
 	cfg *config.Config,
-	repo repositories.Repository,
+	repo repository.Repository,
 ) (*Service, error) {
 	producer, err := kafka.NewProducer(cfg.Kafka.Brokers)
 	if err != nil {
@@ -56,28 +56,29 @@ func NewService(
 }
 
 // SendEmail queues an email for sending
-func (s *Service) SendEmail(req models.SendEmailRequest) error {
+func (s *Service) SendEmail(ctx context.Context, req models.SendEmailRequest) error {
 	// Create email log entry
 	log := models.EmailLog{
-		ID:        uuid.New().String(),
-		To:        req.To,
-		Cc:        req.Cc,
-		Bcc:       req.Bcc,
-		Subject:   req.Subject,
-		Body:      req.Body,
-		Status:    "queued",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:         uuid.New().String(),
+		Recipients: req.To,
+		Cc:         req.Cc,
+		Bcc:        req.Bcc,
+		From:       s.config.SMTP.From,
+		Subject:    req.Subject,
+		Body:       req.Body,
+		Status:     models.EmailStatusQueued,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 
 	// Save to database
-	if err := s.repo.CreateEmailLog(context.Background(), log); err != nil {
+	if err := s.repo.CreateEmailLog(ctx, log); err != nil {
 		return fmt.Errorf("failed to create email log: %w", err)
 	}
 
 	// If template is specified, process it
 	if req.TemplateID != "" {
-		template, err := s.repo.GetTemplate(context.Background(), req.TemplateID)
+		template, err := s.repo.GetTemplate(ctx, req.TemplateID)
 		if err != nil {
 			return fmt.Errorf("failed to get template: %w", err)
 		}
@@ -99,12 +100,12 @@ func (s *Service) SendEmail(req models.SendEmailRequest) error {
 }
 
 // GetEmailLogs retrieves all email logs
-func (s *Service) GetEmailLogs() ([]models.EmailLog, error) {
-	return s.repo.GetEmailLogs(context.Background())
+func (s *Service) GetEmailLogs(ctx context.Context) ([]models.EmailLog, error) {
+	return s.repo.GetEmailLogs(ctx)
 }
 
 // CreateTemplate creates a new email template
-func (s *Service) CreateTemplate(req models.CreateTemplateRequest) (*models.Template, error) {
+func (s *Service) CreateTemplate(ctx context.Context, req models.CreateTemplateRequest) (*models.Template, error) {
 	template := &models.Template{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
@@ -116,7 +117,7 @@ func (s *Service) CreateTemplate(req models.CreateTemplateRequest) (*models.Temp
 		UpdatedAt:   time.Now(),
 	}
 
-	if err := s.repo.CreateTemplate(context.Background(), template); err != nil {
+	if err := s.repo.CreateTemplate(ctx, template); err != nil {
 		return nil, fmt.Errorf("failed to create template: %w", err)
 	}
 
@@ -124,13 +125,13 @@ func (s *Service) CreateTemplate(req models.CreateTemplateRequest) (*models.Temp
 }
 
 // GetTemplate retrieves a template by ID
-func (s *Service) GetTemplate(id string) (*models.Template, error) {
-	return s.repo.GetTemplate(context.Background(), id)
+func (s *Service) GetTemplate(ctx context.Context, id string) (*models.Template, error) {
+	return s.repo.GetTemplate(ctx, id)
 }
 
 // UpdateTemplate updates an existing template
-func (s *Service) UpdateTemplate(id string, req models.UpdateTemplateRequest) (*models.Template, error) {
-	template, err := s.repo.GetTemplate(context.Background(), id)
+func (s *Service) UpdateTemplate(ctx context.Context, id string, req models.UpdateTemplateRequest) (*models.Template, error) {
+	template, err := s.repo.GetTemplate(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get template: %w", err)
 	}
@@ -153,7 +154,7 @@ func (s *Service) UpdateTemplate(id string, req models.UpdateTemplateRequest) (*
 	}
 	template.UpdatedAt = time.Now()
 
-	if err := s.repo.UpdateTemplate(context.Background(), template); err != nil {
+	if err := s.repo.UpdateTemplate(ctx, template); err != nil {
 		return nil, fmt.Errorf("failed to update template: %w", err)
 	}
 
@@ -161,8 +162,8 @@ func (s *Service) UpdateTemplate(id string, req models.UpdateTemplateRequest) (*
 }
 
 // DeleteTemplate deletes a template by ID
-func (s *Service) DeleteTemplate(id string) error {
-	return s.repo.DeleteTemplate(context.Background(), id)
+func (s *Service) DeleteTemplate(ctx context.Context, id string) error {
+	return s.repo.DeleteTemplate(ctx, id)
 }
 
 // processTemplate processes a template with the given data
