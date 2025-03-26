@@ -1,7 +1,11 @@
 package models
 
 import (
+	"net/mail"
 	"time"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 // EmailStatus represents the status of an email
@@ -15,12 +19,21 @@ const (
 	EmailStatusDelivered EmailStatus = "delivered"
 )
 
+// EmailAddress represents an email address
+type EmailAddress string
+
+// ValidateEmailAddress validates an email address
+func (e EmailAddress) Validate() error {
+	_, err := mail.ParseAddress(string(e))
+	return err
+}
+
 // SendEmailRequest represents the request body for sending an email
 type SendEmailRequest struct {
-	To          []string          `json:"to" binding:"required"`
-	Cc          []string          `json:"cc,omitempty"`
-	Bcc         []string          `json:"bcc,omitempty"`
-	Subject     string            `json:"subject" binding:"required"`
+	To          []EmailAddress    `json:"to" binding:"required,dive,email"` // Validate email addresses
+	Cc          []EmailAddress    `json:"cc,omitempty" binding:"dive,email"`
+	Bcc         []EmailAddress    `json:"bcc,omitempty" binding:"dive,email"`
+	Subject     string            `json:"subject" binding:"required,max=255"` // Limit subject length
 	Body        string            `json:"body" binding:"required"`
 	TemplateID  string            `json:"template_id,omitempty"`
 	Data        map[string]string `json:"data,omitempty"`
@@ -41,7 +54,7 @@ type EmailResponse struct {
 
 // EmailLog represents a log entry for an email
 type EmailLog struct {
-	ID          string      `json:"id" db:"id"`
+	ID          uuid.UUID   `json:"id" db:"id"` // Use UUID
 	Recipients  []string    `json:"recipients" db:"recipients"`
 	Cc          []string    `json:"cc,omitempty" db:"cc"`
 	Bcc         []string    `json:"bcc,omitempty" db:"bcc"`
@@ -75,7 +88,7 @@ type UpdateTemplateRequest struct {
 
 // Template represents an email template
 type Template struct {
-	ID          string    `json:"id" db:"id"`
+	ID          uuid.UUID `json:"id" db:"id"` // Use UUID
 	Name        string    `json:"name" db:"name"`
 	Subject     string    `json:"subject" db:"subject"`
 	Body        string    `json:"body" db:"body"`
@@ -103,9 +116,15 @@ type EmailMessage struct {
 
 // User represents a user in the system
 type User struct {
-	ID        string    `json:"id" db:"id"`
+	ID        uuid.UUID `json:"id" db:"id"` // Use UUID
 	Email     string    `json:"email" db:"email"`
 	Role      string    `json:"role" db:"role"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at,omitempty" db:"updated_at"`
+}
+
+// Validate validates the model
+func (r *SendEmailRequest) Validate() error {
+	validate := validator.New()
+	return validate.Struct(r)
 }

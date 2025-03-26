@@ -1,0 +1,87 @@
+global:
+  environment: production
+  domain: sparkfund.com
+  registry: ghcr.io
+  repositoryOwner: adil-faiyaz98
+
+accounts:
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  env:
+    - name: APP_ENV
+      value: production
+    - name: LOG_LEVEL
+      value: info
+
+users:
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  env:
+    - name: APP_ENV
+      value: production
+    - name: LOG_LEVEL
+      value: info
+
+transactions:
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  env:
+    - name: APP_ENV
+      value: production
+    - name: LOG_LEVEL
+      value: info
+
+postgres:
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  persistence:
+    size: 50Gi
+
+ingress:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
+  hosts:
+    - host: api.sparkfund.com
+      paths:
+        - path: /api/v1/users
+          pathType: Prefix
+          service: users-service
+          port: 8080
+        - path: /api/v1/accounts
+          pathType: Prefix
+          service: accounts-service
+          port: 8080
+        - path: /api/v1/transactions
+          pathType: Prefix
+          service: transactions-service
+          port: 8080
+  tls:
+    - secretName: sparkfund-tls
+      hosts:
+        - api.sparkfund.com 

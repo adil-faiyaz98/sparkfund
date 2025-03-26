@@ -59,8 +59,11 @@ func main() {
 	// Initialize repository
 	repo := repository.NewPostgresRepository(db)
 
+	// Initialize auth service
+	authService := services.NewAuthService(logger, cfg)
+
 	// Initialize service
-	emailService, err := services.NewService(logger, cfg, repo)
+	emailService, err := services.NewService(logger, cfg, repo, authService)
 	if err != nil {
 		logger.Fatal("Failed to initialize service", zap.Error(err))
 	}
@@ -73,11 +76,8 @@ func main() {
 
 	// Add middleware
 	router.Use(gin.Recovery())
-	router.Use(gin.Logger())
-	router.Use(gin.ErrorLogger())
-
 	// Setup routes
-	routes.SetupRoutes(router, handler)
+	routes.SetupRoutes(router, handler, authService, logger)
 
 	// Setup Swagger
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

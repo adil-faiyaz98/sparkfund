@@ -1,6 +1,6 @@
 -- Create email_logs table
 CREATE TABLE IF NOT EXISTS email_logs (
-    id VARCHAR(36) PRIMARY KEY,
+    id UUID PRIMARY KEY,
     recipients TEXT[] NOT NULL,
     cc TEXT[],
     bcc TEXT[],
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS email_logs (
 
 -- Create templates table
 CREATE TABLE IF NOT EXISTS templates (
-    id VARCHAR(36) PRIMARY KEY,
+    id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     subject VARCHAR(255) NOT NULL,
     body TEXT NOT NULL,
@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS templates (
 CREATE INDEX IF NOT EXISTS idx_email_logs_status ON email_logs(status);
 CREATE INDEX IF NOT EXISTS idx_email_logs_created_at ON email_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_templates_name ON templates(name);
+CREATE INDEX IF NOT EXISTS idx_email_logs_from ON email_logs(from_address);
+CREATE INDEX IF NOT EXISTS idx_email_logs_subject ON email_logs(subject);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -49,4 +51,4 @@ CREATE TRIGGER update_email_logs_updated_at
 CREATE TRIGGER update_templates_updated_at
     BEFORE UPDATE ON templates
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column(); 
+    EXECUTE FUNCTION update_updated_at_column();

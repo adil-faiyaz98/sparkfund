@@ -2,14 +2,14 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: accounts-service-hpa
-  namespace: money-pulse
+  namespace: sparkfund
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: accounts-service
   minReplicas: 2
-  maxReplicas: 5
+  maxReplicas: 10
   metrics:
   - type: Resource
     resource:
@@ -22,14 +22,14 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: users-service-hpa
-  namespace: money-pulse
+  namespace: sparkfund
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: users-service
   minReplicas: 2
-  maxReplicas: 5
+  maxReplicas: 10
   metrics:
   - type: Resource
     resource:
@@ -42,14 +42,14 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: transactions-service-hpa
-  namespace: money-pulse
+  namespace: sparkfund
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: transactions-service
   minReplicas: 2
-  maxReplicas: 5
+  maxReplicas: 10
   metrics:
   - type: Resource
     resource:

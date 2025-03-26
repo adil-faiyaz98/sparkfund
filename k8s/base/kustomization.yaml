@@ -6,11 +6,10 @@ resources:
   - configmaps/
   - secrets/
   - storage/
-  - deployments/
-  - ingress/
+  - infrastructure/
 
 commonLabels:
-  app.kubernetes.io/part-of: money-pulse
+  app.kubernetes.io/part-of: sparkfund
   app.kubernetes.io/managed-by: kustomize
 
-namespace: money-pulse 
+namespace: sparkfund 

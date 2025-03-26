@@ -5,7 +5,7 @@ services:
     image: postgres:14-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      #POSTGRES_PASSWORD: postgres #REPLACE WITH SECRETS MANAGER
       POSTGRES_DB: email_service
     ports:
       - "5432:5432"
@@ -16,6 +16,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    secrets:
+      - postgres_password
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.0
@@ -111,7 +113,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      #GF_SECURITY_ADMIN_PASSWORD=admin #REPLACE WITH SECRETS MANAGER
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
@@ -126,6 +128,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    secrets:
+      - grafana_password
 
   email-service:
     build:
@@ -142,7 +146,7 @@ services:
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      # - DB_PASSWORD=postgres #REPLACE WITH SECRETS MANAGER
       - DB_NAME=email_service
       - DB_SSL_MODE=disable
       - DB_MAX_CONNS=10
@@ -151,8 +155,8 @@ services:
       - KAFKA_TOPIC=email-queue
       - SMTP_HOST=smtp.gmail.com
       - SMTP_PORT=587
-      - SMTP_USERNAME=${SMTP_USERNAME}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      # - SMTP_USERNAME=${SMTP_USERNAME} #REPLACE WITH SECRETS MANAGER
+      # - SMTP_PASSWORD=${SMTP_PASSWORD} #REPLACE WITH SECRETS MANAGER
       - SMTP_FROM=noreply@sparkfund.com
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
     depends_on:
@@ -175,6 +179,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    secrets:
+      - postgres_password
+      - smtp_username
+      - smtp_password
+
+secrets:
+  postgres_password:
+    external: true
+  grafana_password:
+    external: true
+  smtp_username:
+    external: true
+  smtp_password:
+    external: true
 
 volumes:
   postgres_data:

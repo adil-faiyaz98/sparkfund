@@ -2,9 +2,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: investments-config
+  namespace: sparkfund
   labels:
-    app: money-pulse
-    component: investments
+    app: sparkfund
 data:
   INVESTMENT_API_ENDPOINT: "https://api.investments.moneypulse.io/v1"
   INVESTMENT_REFRESH_INTERVAL: "3600"  # In seconds
@@ -16,3 +16,9 @@ data:
   CAPITAL_GAINS_CALCULATION: "fifo"  # First In, First Out
   LOG_LEVEL: "info"
   CACHE_TTL: "1800"  # In seconds
+  APP_ENV: development
+  SERVER_PORT: "8080"
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: sparkfund
+  DB_SSL_MODE: disable

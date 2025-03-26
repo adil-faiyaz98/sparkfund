@@ -2,9 +2,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: loans-config
+  namespace: sparkfund
   labels:
-    app: money-pulse
-    component: loans
+    app: sparkfund
 data:
   LOAN_API_ENDPOINT: "https://api.loans.moneypulse.io/v1"
   INTEREST_CALCULATION_METHOD: "daily-compound"
@@ -17,3 +17,9 @@ data:
   REFINANCE_CHECK_INTERVAL: "2592000"  # 30 days in seconds
   LOG_LEVEL: "info"
   RATE_REFRESH_CRON: "0 0 * * *"  # Daily at midnight
+  APP_ENV: development
+  SERVER_PORT: "8080"
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: sparkfund
+  DB_SSL_MODE: disable

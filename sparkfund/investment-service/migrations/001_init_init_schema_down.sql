@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS investments;
+DROP TABLE IF EXISTS portfolios;

@@ -1,78 +1,78 @@
 # Email Service
 
-A microservice responsible for sending emails and managing email templates. This service provides a RESTful API for sending emails, managing email templates, and tracking email delivery status.
+A microservice responsible for sending emails and managing email templates in the SparkFund platform.
 
 ## Features
 
-- Send emails with support for CC, BCC, and attachments
-- Create and manage email templates with variable substitution
-- Track email delivery status and history
-- RESTful API with Swagger documentation
-- PostgreSQL database for persistent storage
-- Kafka integration for asynchronous email processing
-- Prometheus metrics and Grafana dashboards
-- Jaeger tracing for distributed tracing
+- Asynchronous email processing using Kafka
+- Persistent storage with PostgreSQL
+- Distributed tracing with Jaeger
+- Metrics collection with Prometheus
+- Dashboards with Grafana
+- Rate limiting and request validation
+- Comprehensive error handling
+- Health checks and monitoring
 
 ## Prerequisites
 
-- Go 1.19 or later
 - Docker and Docker Compose
-- PostgreSQL 14 or later
-- Kafka (provided via Docker Compose)
-- Jaeger (provided via Docker Compose)
-- Prometheus (provided via Docker Compose)
-- Grafana (provided via Docker Compose)
+- Go 1.19 or later
+- Make (optional, for using Makefile commands)
 
 ## Environment Variables
 
 The following environment variables can be configured:
 
-```env
-# Server Configuration
-PORT=8080
-SHUTDOWN_TIMEOUT=10s
+### Server Configuration
 
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=email_service
-DB_SSL_MODE=disable
+- `PORT` - Server port (default: 8080)
+- `SHUTDOWN_TIMEOUT` - Graceful shutdown timeout (default: 30s)
 
-# Kafka Configuration
-KAFKA_BROKERS=localhost:9092
-KAFKA_TOPIC=emails
+### Database Configuration
 
-# SMTP Configuration
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USERNAME=your-username
-SMTP_PASSWORD=your-password
-SMTP_FROM=noreply@example.com
+- `DB_HOST` - PostgreSQL host (default: localhost)
+- `DB_PORT` - PostgreSQL port (default: 5432)
+- `DB_USER` - Database user (default: postgres)
+- `DB_PASSWORD` - Database password (default: postgres)
+- `DB_NAME` - Database name (default: email_service)
+- `DB_SSL_MODE` - SSL mode (default: disable)
 
-# Jaeger Configuration
-JAEGER_ENDPOINT=http://localhost:14268/api/traces
-JAEGER_SERVICE=email-service
+### Kafka Configuration
 
-# Rate Limiting
-RATE_LIMIT=100
-RATE_LIMIT_BURST=10
-```
+- `KAFKA_BROKERS` - Comma-separated list of Kafka brokers (default: localhost:9092)
+- `KAFKA_TOPIC` - Kafka topic for email requests (default: email_requests)
+
+### SMTP Configuration
+
+- `SMTP_HOST` - SMTP server host (default: localhost)
+- `SMTP_PORT` - SMTP server port (default: 587)
+- `SMTP_USERNAME` - SMTP username
+- `SMTP_PASSWORD` - SMTP password
+- `SMTP_FROM` - Default sender email (default: noreply@example.com)
+
+### Jaeger Configuration
+
+- `JAEGER_ENDPOINT` - Jaeger collector endpoint (default: http://localhost:14268/api/traces)
+- `JAEGER_SERVICE` - Service name for tracing (default: email-service)
+
+### Rate Limiting
+
+- `RATE_LIMIT` - Requests per second (default: 100)
+- `RATE_LIMIT_BURST` - Burst size (default: 200)
 
 ## Development Setup
 
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/adil-faiyaz98/sparkfund/email-service.git
-   cd email-service
+   git clone https://github.com/adil-faiyaz98/sparkfund.git
+   cd sparkfund/email-service
    ```
 
 2. Start the development environment:
 
    ```bash
-   docker-compose up -d
+   make dev
    ```
 
 3. Run database migrations:
@@ -81,13 +81,7 @@ RATE_LIMIT_BURST=10
    make migrate-up
    ```
 
-4. Build the service:
-
-   ```bash
-   make build
-   ```
-
-5. Run the service:
+4. Build and run the service:
    ```bash
    make run
    ```
@@ -97,59 +91,46 @@ RATE_LIMIT_BURST=10
 ### Email Operations
 
 - `POST /api/v1/emails` - Send an email
-- `GET /api/v1/emails` - Get email logs
+- `GET /api/v1/emails/:id` - Get email status
+- `GET /api/v1/emails` - List all emails
+- `GET /api/v1/emails/stats` - Get email statistics
 
 ### Template Operations
 
-- `POST /api/v1/templates` - Create a new template
+- `POST /api/v1/templates` - Create a template
 - `GET /api/v1/templates/:id` - Get a template
 - `PUT /api/v1/templates/:id` - Update a template
 - `DELETE /api/v1/templates/:id` - Delete a template
-
-### Health Check
-
-- `GET /health` - Health check endpoint
-
-### API Documentation
-
-- `GET /swagger/*` - Swagger UI documentation
+- `GET /api/v1/templates` - List all templates
 
 ## Monitoring
 
 ### Prometheus Metrics
 
-The service exposes Prometheus metrics at `/metrics`. Key metrics include:
+The service exposes the following metrics:
 
 - `email_sent_total` - Total number of emails sent
-- `email_failed_total` - Total number of failed email attempts
-- `template_operations_total` - Total number of template operations
-- `http_requests_total` - Total number of HTTP requests
+- `email_failed_total` - Total number of failed emails
+- `email_pending_total` - Total number of pending emails
+- `email_processing_duration_seconds` - Email processing duration
 - `http_request_duration_seconds` - HTTP request duration
+- `http_requests_total` - Total number of HTTP requests
 
-### Jaeger Tracing
+### Distributed Tracing
 
-Distributed tracing is available through Jaeger. Access the Jaeger UI at `http://localhost:16686`.
+The service is integrated with Jaeger for distributed tracing. You can access the Jaeger UI at http://localhost:16686.
 
 ### Grafana Dashboards
 
-Pre-built Grafana dashboards are available at `http://localhost:3000`.
+Grafana is available at http://localhost:3000 with the following default credentials:
+
+- Username: admin
+- Password: admin
 
 ## Testing
 
-Run tests:
+Run tests using:
 
 ```bash
 make test
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.

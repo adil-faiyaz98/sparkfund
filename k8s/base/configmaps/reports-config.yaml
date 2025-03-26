@@ -2,9 +2,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: reports-config
+  namespace: sparkfund
   labels:
-    app: money-pulse
-    component: reports
+    app: sparkfund
 data:
   REPORTS_API_ENDPOINT: "https://api.reports.moneypulse.io/v1"
   DEFAULT_REPORT_FORMAT: "pdf"
@@ -19,3 +19,9 @@ data:
   SPENDING_CATEGORIES: "housing,transportation,food,utilities,healthcare,entertainment,education,debt,savings"
   LOG_LEVEL: "info"
   REPORT_GENERATION_TIMEOUT: "300"  # In seconds
+  APP_ENV: development
+  SERVER_PORT: "8080"
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: sparkfund
+  DB_SSL_MODE: disable

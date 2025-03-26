@@ -14,9 +14,23 @@ import (
 
 // ErrorResponse represents a standardized error response
 type ErrorResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Status  int    `json:"status"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Status    int    `json:"status"`
+	RequestID string `json:"request_id,omitempty"` //Include request ID
+}
+
+// Example of existing errors:
+var ErrUnauthorized = &errors.Error{
+	Code:    "UNAUTHORIZED",
+	Message: "Unauthorized access",
+	Status:  http.StatusUnauthorized,
+}
+
+var ErrForbidden = &errors.Error{
+	Code:    "FORBIDDEN",
+	Message: "Access forbidden",
+	Status:  http.StatusForbidden,
 }
 
 // ErrorHandler middleware handles errors and returns appropriate responses
@@ -27,41 +41,25 @@ func ErrorHandler(logger *zap.Logger) gin.HandlerFunc {
 		if len(c.Errors) > 0 {
 			err := c.Errors.Last().Err
 			var response ErrorResponse
+			requestID := c.GetString("request_id") // Get request ID
 
-			switch {
-			case errors.IsValidationError(err):
+			var appError *errors.Error
+			if errors.As(err, &appError) {
 				response = ErrorResponse{
-					Code:    errors.ValidationError,
-					Message: err.Error(),
-					Status:  http.StatusBadRequest,
+					Code:      appError.Code,
+					Message:   appError.Message,
+					Status:    appError.Status,
+					RequestID: requestID,
 				}
-			case errors.IsDatabaseError(err):
+				logger.Error(appError.Message, zap.Error(err), zap.String("request_id", requestID))
+			} else {
 				response = ErrorResponse{
-					Code:    errors.DatabaseError,
-					Message: "Internal server error",
-					Status:  http.StatusInternalServerError,
+					Code:      "INTERNAL_ERROR",
+					Message:   "Internal server error",
+					Status:    http.StatusInternalServerError,
+					RequestID: requestID,
 				}
-				logger.Error("Database error", zap.Error(err))
-			case errors.IsKafkaError(err):
-				response = ErrorResponse{
-					Code:    errors.KafkaError,
-					Message: "Internal server error",
-					Status:  http.StatusInternalServerError,
-				}
-				logger.Error("Kafka error", zap.Error(err))
-			case errors.IsNotFoundError(err):
-				response = ErrorResponse{
-					Code:    errors.NotFoundError,
-					Message: err.Error(),
-					Status:  http.StatusNotFound,
-				}
-			default:
-				response = ErrorResponse{
-					Code:    "INTERNAL_ERROR",
-					Message: "Internal server error",
-					Status:  http.StatusInternalServerError,
-				}
-				logger.Error("Unhandled error", zap.Error(err))
+				logger.Error("Unhandled error", zap.Error(err), zap.String("request_id", requestID))
 			}
 
 			c.JSON(response.Status, response)
@@ -75,11 +73,13 @@ func Recovery(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				logger.Error("Panic recovered", zap.Any("error", err))
+				requestID := c.GetString("request_id")
+				logger.Error("Panic recovered", zap.Any("error", err), zap.String("request_id", requestID))
 				c.JSON(http.StatusInternalServerError, ErrorResponse{
-					Code:    "PANIC",
-					Message: "Internal server error",
-					Status:  http.StatusInternalServerError,
+					Code:      "PANIC",
+					Message:   "Internal server error",
+					Status:    http.StatusInternalServerError,
+					RequestID: requestID,
 				})
 				c.Abort()
 			}
@@ -104,6 +104,7 @@ func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 		start := time.Now()
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
+		requestID := c.GetString("request_id")
 
 		c.Next()
 
@@ -113,6 +114,7 @@ func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 			zap.String("query", query),
 			zap.Int("status", c.Writer.Status()),
 			zap.Duration("latency", time.Since(start)),
+			zap.String("request_id", requestID), //Include request ID
 		)
 	}
 }
@@ -122,10 +124,12 @@ func RateLimiter(limit rate.Limit, burst int) gin.HandlerFunc {
 	limiter := rate.NewLimiter(limit, burst)
 	return func(c *gin.Context) {
 		if !limiter.Allow() {
+			requestID := c.GetString("request_id")
 			c.JSON(http.StatusTooManyRequests, ErrorResponse{
-				Code:    "RATE_LIMIT_EXCEEDED",
-				Message: "Too many requests",
-				Status:  http.StatusTooManyRequests,
+				Code:      "RATE_LIMIT_EXCEEDED",
+				Message:   "Too many requests",
+				Status:    http.StatusTooManyRequests,
+				RequestID: requestID,
 			})
 			c.Abort()
 			return

@@ -1,38 +1,38 @@
 package logger
 
 import (
+	"os" // Import the os package
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-var log *zap.Logger
-
-// Init initializes the logger with the specified environment
-func Init(env string) error {
+// NewLogger initializes the logger with the specified environment
+func NewLogger(env string) (*zap.Logger, error) {
 	var config zap.Config
 	if env == "production" {
 		config = zap.NewProductionConfig()
+		//Consider setting output paths in production
+		//config.OutputPaths = []string{"/var/log/myapp/app.log", "stderr"}
 	} else {
 		config = zap.NewDevelopmentConfig()
+	}
+
+	// Override config with environment variables if they exist
+	if level := os.Getenv("LOG_LEVEL"); level != "" {
+		lvl, err := zapcore.ParseLevel(level)
+		if err == nil {
+			config.Level = zap.NewAtomicLevelAt(lvl)
+		}
 	}
 
 	config.EncoderConfig.TimeKey = "timestamp"
 	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	var err error
-	log, err = config.Build()
+	log, err := config.Build()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return log, nil
 }
-
-// GetLogger returns the logger instance
-func GetLogger() *zap.Logger {
-	if log == nil {
-		// Initialize with development config if not initialized
-		Init("development")
-	}
-	return log
-} 

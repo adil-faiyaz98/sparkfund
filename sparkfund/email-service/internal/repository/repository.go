@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/sparkfund/email-service/internal/errors"
 	"github.com/sparkfund/email-service/internal/models"
+	"go.uber.org/zap" // Import zap
 )
 
 // Repository defines the interface for database operations
@@ -15,19 +18,20 @@ type Repository interface {
 	CreateEmailLog(ctx context.Context, log models.EmailLog) error
 	GetEmailLogs(ctx context.Context) ([]models.EmailLog, error)
 	CreateTemplate(ctx context.Context, template *models.Template) error
-	GetTemplate(ctx context.Context, id string) (*models.Template, error)
+	GetTemplate(ctx context.Context, id uuid.UUID) (*models.Template, error)
 	UpdateTemplate(ctx context.Context, template *models.Template) error
-	DeleteTemplate(ctx context.Context, id string) error
+	DeleteTemplate(ctx context.Context, id uuid.UUID) error
 }
 
 // postgresRepository implements the Repository interface using PostgreSQL
 type postgresRepository struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	logger *zap.Logger // Add logger
 }
 
 // NewPostgresRepository creates a new PostgreSQL repository instance
-func NewPostgresRepository(db *sqlx.DB) Repository {
-	return &postgresRepository{db: db}
+func NewPostgresRepository(db *sqlx.DB, logger *zap.Logger) Repository {
+	return &postgresRepository{db: db, logger: logger}
 }
 
 // CreateEmailLog creates a new email log entry
@@ -53,7 +57,8 @@ func (r *postgresRepository) CreateEmailLog(ctx context.Context, log models.Emai
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to create email log: %w", err)
+		r.logger.Error("Failed to create email log", zap.Error(err))
+		return errors.NewDatabaseError(err, errors.ComponentRepository)
 	}
 
 	return nil
@@ -69,7 +74,8 @@ func (r *postgresRepository) GetEmailLogs(ctx context.Context) ([]models.EmailLo
 
 	var logs []models.EmailLog
 	if err := r.db.SelectContext(ctx, &logs, query); err != nil {
-		return nil, fmt.Errorf("failed to get email logs: %w", err)
+		r.logger.Error("Failed to get email logs", zap.Error(err))
+		return nil, errors.NewDatabaseError(err, errors.ComponentRepository)
 	}
 
 	return logs, nil
@@ -94,14 +100,15 @@ func (r *postgresRepository) CreateTemplate(ctx context.Context, template *model
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to create template: %w", err)
+		r.logger.Error("Failed to create template", zap.Error(err))
+		return errors.NewDatabaseError(err, errors.ComponentRepository)
 	}
 
 	return nil
 }
 
 // GetTemplate retrieves a template by ID
-func (r *postgresRepository) GetTemplate(ctx context.Context, id string) (*models.Template, error) {
+func (r *postgresRepository) GetTemplate(ctx context.Context, id uuid.UUID) (*models.Template, error) {
 	query := `
 		SELECT id, name, subject, body, variables, description, created_at, updated_at
 		FROM templates
@@ -109,11 +116,14 @@ func (r *postgresRepository) GetTemplate(ctx context.Context, id string) (*model
 	`
 
 	var template models.Template
-	if err := r.db.GetContext(ctx, &template, query, id); err != nil {
+	err := r.db.GetContext(ctx, &template, query, id)
+	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("template not found")
+			r.logger.Warn("Template not found", zap.String("template_id", id.String()))
+			return nil, errors.NewNotFoundError("template not found")
 		}
-		return nil, fmt.Errorf("failed to get template: %w", err)
+		r.logger.Error("Failed to get template", zap.Error(err), zap.String("template_id", id.String()))
+		return nil, errors.NewDatabaseError(err, errors.ComponentRepository)
 	}
 
 	return &template, nil
@@ -138,37 +148,43 @@ func (r *postgresRepository) UpdateTemplate(ctx context.Context, template *model
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to update template: %w", err)
+		r.logger.Error("Failed to update template", zap.Error(err), zap.String("template_id", template.ID.String()))
+		return errors.NewDatabaseError(err, errors.ComponentRepository)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		r.logger.Error("Failed to get rows affected", zap.Error(err), zap.String("template_id", template.ID.String()))
+		return errors.NewDatabaseError(err, errors.ComponentRepository)
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("template not found")
+		r.logger.Warn("Template not found", zap.String("template_id", template.ID.String()))
+		return errors.NewNotFoundError("template not found")
 	}
 
 	return nil
 }
 
 // DeleteTemplate deletes a template by ID
-func (r *postgresRepository) DeleteTemplate(ctx context.Context, id string) error {
+func (r *postgresRepository) DeleteTemplate(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM templates WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
-		return fmt.Errorf("failed to delete template: %w", err)
+		r.logger.Error("Failed to delete template", zap.Error(err), zap.String("template_id", id.String()))
+		return errors.NewDatabaseError(err, errors.ComponentRepository)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		r.logger.Error("Failed to get rows affected", zap.Error(err), zap.String("template_id", id.String()))
+		return errors.NewDatabaseError(err, errors.ComponentRepository)
 	}
 
 	if rows == 0 {
-		return fmt.Errorf("template not found")
+		r.logger.Warn("Template not found", zap.String("template_id", id.String()))
+		return errors.NewNotFoundError("template not found")
 	}
 
 	return nil
@@ -177,15 +193,17 @@ func (r *postgresRepository) DeleteTemplate(ctx context.Context, id string) erro
 // memoryRepository implements the Repository interface using in-memory storage
 type memoryRepository struct {
 	mu        sync.RWMutex
-	logs      map[string]models.EmailLog
-	templates map[string]*models.Template
+	logs      map[uuid.UUID]models.EmailLog
+	templates map[uuid.UUID]*models.Template
+	logger    *zap.Logger // Add logger
 }
 
 // NewMemoryRepository creates a new in-memory repository instance
-func NewMemoryRepository() Repository {
+func NewMemoryRepository(logger *zap.Logger) Repository {
 	return &memoryRepository{
-		logs:      make(map[string]models.EmailLog),
-		templates: make(map[string]*models.Template),
+		logs:      make(map[uuid.UUID]models.EmailLog),
+		templates: make(map[uuid.UUID]*models.Template),
+		logger:    logger,
 	}
 }
 
@@ -195,7 +213,9 @@ func (r *memoryRepository) CreateEmailLog(ctx context.Context, log models.EmailL
 	defer r.mu.Unlock()
 
 	if _, exists := r.logs[log.ID]; exists {
-		return fmt.Errorf("log with ID %s already exists", log.ID)
+		err := fmt.Errorf("log with ID %s already exists", log.ID)
+		r.logger.Error("Failed to create email log", zap.Error(err), zap.String("email_log_id", log.ID.String()))
+		return err
 	}
 
 	r.logs[log.ID] = log
@@ -221,7 +241,9 @@ func (r *memoryRepository) CreateTemplate(ctx context.Context, template *models.
 	defer r.mu.Unlock()
 
 	if _, exists := r.templates[template.ID]; exists {
-		return fmt.Errorf("template with ID %s already exists", template.ID)
+		err := fmt.Errorf("template with ID %s already exists", template.ID)
+		r.logger.Error("Failed to create template", zap.Error(err), zap.String("template_id", template.ID.String()))
+		return err
 	}
 
 	r.templates[template.ID] = template
@@ -229,13 +251,15 @@ func (r *memoryRepository) CreateTemplate(ctx context.Context, template *models.
 }
 
 // GetTemplate retrieves a template by ID
-func (r *memoryRepository) GetTemplate(ctx context.Context, id string) (*models.Template, error) {
+func (r *memoryRepository) GetTemplate(ctx context.Context, id uuid.UUID) (*models.Template, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	template, exists := r.templates[id]
 	if !exists {
-		return nil, fmt.Errorf("template with ID %s does not exist", id)
+		err := fmt.Errorf("template with ID %s does not exist", id)
+		r.logger.Warn("Template not found", zap.Error(err), zap.String("template_id", id.String()))
+		return nil, errors.NewNotFoundError("template not found")
 	}
 
 	return template, nil
@@ -247,7 +271,9 @@ func (r *memoryRepository) UpdateTemplate(ctx context.Context, template *models.
 	defer r.mu.Unlock()
 
 	if _, exists := r.templates[template.ID]; !exists {
-		return fmt.Errorf("template with ID %s does not exist", template.ID)
+		err := fmt.Errorf("template with ID %s does not exist", template.ID)
+		r.logger.Error("Failed to update template", zap.Error(err), zap.String("template_id", template.ID.String()))
+		return err
 	}
 
 	r.templates[template.ID] = template
@@ -255,12 +281,14 @@ func (r *memoryRepository) UpdateTemplate(ctx context.Context, template *models.
 }
 
 // DeleteTemplate deletes a template by ID
-func (r *memoryRepository) DeleteTemplate(ctx context.Context, id string) error {
+func (r *memoryRepository) DeleteTemplate(ctx context.Context, id uuid.UUID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if _, exists := r.templates[id]; !exists {
-		return fmt.Errorf("template with ID %s does not exist", id)
+		err := fmt.Errorf("template with ID %s does not exist", id)
+		r.logger.Error("Failed to delete template", zap.Error(err), zap.String("template_id", id.String()))
+		return err
 	}
 
 	delete(r.templates, id)
