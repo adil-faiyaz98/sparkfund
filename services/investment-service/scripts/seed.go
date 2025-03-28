@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"investment-service/internal/database"
-	"investment-service/internal/models"
+	"github.com/sparkfund/services/investment-service/internal/database"
+	"github.com/sparkfund/services/investment-service/internal/models"
 )
 
 func main() {

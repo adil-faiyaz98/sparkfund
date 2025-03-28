@@ -4,8 +4,10 @@ definitions:
     properties:
       amount:
         type: number
+        format: float64
       created_at:
         type: string
+        format: date-time
       id:
         type: integer
       notes:
@@ -15,18 +17,24 @@ definitions:
         type: integer
       purchase_date:
         type: string
+        format: date-time
       purchase_price:
         type: number
+        format: float64
       quantity:
         type: number
+        minimum: 0.0001
       sell_date:
         type: string
+        format: date-time
       sell_price:
         type: number
+        format: float64
       status:
         description: e.g., "ACTIVE", "SOLD", "PENDING"
         example: ACTIVE
         type: string
+        enum: [ACTIVE, SOLD, PENDING]
       symbol:
         description: e.g., "AAPL", "BTC", "ETH"
         example: AAPL
@@ -35,60 +43,92 @@ definitions:
         description: e.g., "STOCK", "CRYPTO", "REAL_ESTATE"
         example: STOCK
         type: string
+        enum: [STOCK, CRYPTO, REAL_ESTATE, ETF, BOND, MUTUAL_FUND]
       updated_at:
         type: string
+        format: date-time
       user_id:
-        type: integer
+        type: string
+        format: uuid
+    required:
+      - user_id
+      - portfolio_id
+      - quantity
+      - type
+      - symbol
     type: object
   models.Portfolio:
     properties:
       created_at:
         type: string
+        format: date-time
       description:
         type: string
       id:
         type: integer
       last_updated:
         type: string
+        format: date-time
       name:
         type: string
       total_value:
         type: number
+        format: float64
       updated_at:
         type: string
+        format: date-time
       user_id:
-        type: integer
+        type: string
+        format: uuid
+    required:
+      - user_id
+      - name
     type: object
   models.Transaction:
     properties:
       amount:
         type: number
+        format: float64
       created_at:
         type: string
+        format: date-time
       id:
         type: integer
       investment_id:
         type: integer
       price:
         type: number
+        format: float64
       quantity:
         type: number
+        minimum: 0.0001
       status:
         description: e.g., "COMPLETED", "PENDING", "FAILED"
         example: COMPLETED
         type: string
+        enum: [COMPLETED, PENDING, FAILED]
       timestamp:
         type: string
+        format: date-time
       transaction_id:
         type: string
+        format: uuid
       type:
         description: e.g., "BUY", "SELL"
         example: BUY
         type: string
+        enum: [BUY, SELL]
       updated_at:
         type: string
+        format: date-time
       user_id:
-        type: integer
+        type: string
+        format: uuid
+    required:
+      - user_id
+      - investment_id
+      - type
+      - quantity
     type: object
 host: localhost:8081
 info:
@@ -170,7 +210,8 @@ paths:
         in: path
         name: id
         required: true
-        type: string
+        type: integer
+        format: int64
       produces:
       - application/json
       responses:
@@ -200,7 +241,8 @@ paths:
         in: path
         name: id
         required: true
-        type: string
+        type: integer
+        format: int64
       produces:
       - application/json
       responses:
@@ -232,7 +274,8 @@ paths:
         in: path
         name: id
         required: true
-        type: string
+        type: integer
+        format: int64
       - description: Updated investment object
         in: body
         name: investment
@@ -311,7 +354,8 @@ paths:
         in: path
         name: id
         required: true
-        type: string
+        type: integer
+        format: int64
       produces:
       - application/json
       responses:
@@ -345,7 +389,8 @@ paths:
         in: path
         name: id
         required: true
-        type: string
+        type: integer
+        format: int64
       produces:
       - application/json
       responses:
@@ -377,7 +422,8 @@ paths:
         in: path
         name: id
         required: true
-        type: string
+        type: integer
+        format: int64
       - description: Updated portfolio object
         in: body
         name: portfolio

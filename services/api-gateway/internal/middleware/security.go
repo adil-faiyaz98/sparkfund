@@ -84,7 +84,6 @@ func (sm *SecurityMiddleware) Apply(router *gin.Engine) {
 // IPValidation middleware validates and sanitizes IP addresses
 func (sm *SecurityMiddleware) IPValidation() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Skip security checks for health and metrics endpoints
 		if c.Request.URL.Path == "/health" || c.Request.URL.Path == "/metrics" {
 			c.Next()
 			return
