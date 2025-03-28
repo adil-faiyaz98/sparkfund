@@ -1,0 +1,305 @@
+openapi: 3.0.0
+info:
+  title: SparkFund KYC Service API
+  description: API for handling Know Your Customer (KYC) verification processes
+  version: 1.0.0
+  contact:
+    name: SparkFund Team
+    email: support@sparkfund.com
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.sparkfund.com
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    KYCRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - dateOfBirth
+        - address
+        - city
+        - country
+        - postalCode
+        - documentType
+        - documentNumber
+        - documentFront
+        - documentBack
+        - selfieImage
+      properties:
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        dateOfBirth:
+          type: string
+          format: date
+          example: "1990-01-01"
+        address:
+          type: string
+          example: "123 Main St"
+        city:
+          type: string
+          example: "New York"
+        country:
+          type: string
+          example: "US"
+        postalCode:
+          type: string
+          example: "10001"
+        documentType:
+          type: string
+          enum: [passport, national_id, drivers_license, residence_permit]
+          example: "passport"
+        documentNumber:
+          type: string
+          example: "AB123456"
+        documentFront:
+          type: string
+          format: binary
+        documentBack:
+          type: string
+          format: binary
+        selfieImage:
+          type: string
+          format: binary
+
+    KYCResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, verified, rejected]
+        rejectionReason:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the service
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /api/v1/kyc:
+    post:
+      summary: Submit KYC documents
+      description: Submit KYC documents for verification
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/KYCRequest'
+      responses:
+        '200':
+          description: KYC submission successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KYCResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/kyc/{id}:
+    get:
+      summary: Get KYC status
+      description: Get the status of a KYC submission
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: KYC status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KYCResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: KYC submission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/kyc/{id}/verify:
+    post:
+      summary: Verify KYC submission
+      description: Verify a pending KYC submission
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: KYC submission verified successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: KYC submission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/kyc/{id}/reject:
+    post:
+      summary: Reject KYC submission
+      description: Reject a pending KYC submission
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  example: "Document quality is poor"
+      responses:
+        '200':
+          description: KYC submission rejected successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: KYC submission not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/kyc/pending:
+    get:
+      summary: List pending KYC submissions
+      description: Get a list of all pending KYC submissions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Pending KYC submissions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KYCResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error' 

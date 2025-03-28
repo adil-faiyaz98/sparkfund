@@ -1,0 +1,412 @@
+openapi: 3.0.0
+info:
+  title: SparkFund AML Service API
+  description: API for handling Anti-Money Laundering (AML) monitoring and transaction analysis
+  version: 1.0.0
+  contact:
+    name: SparkFund Team
+    email: support@sparkfund.com
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.sparkfund.com
+    description: Production server
+
+components:
+  schemas:
+    TransactionRequest:
+      type: object
+      required:
+        - type
+        - amount
+        - currency
+        - sourceAccount
+        - destinationAccount
+      properties:
+        type:
+          type: string
+          enum: [deposit, withdrawal, transfer, investment]
+        amount:
+          type: number
+          format: float
+          minimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        sourceAccount:
+          type: string
+        destinationAccount:
+          type: string
+        description:
+          type: string
+        ipAddress:
+          type: string
+          format: ipv4
+        deviceId:
+          type: string
+        location:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    TransactionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [deposit, withdrawal, transfer, investment]
+        amount:
+          type: number
+          format: float
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, flagged, completed]
+        riskLevel:
+          type: string
+          enum: [low, medium, high, critical]
+        sourceAccount:
+          type: string
+        destinationAccount:
+          type: string
+        description:
+          type: string
+        ipAddress:
+          type: string
+        deviceId:
+          type: string
+        location:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        flaggedBy:
+          type: string
+        flagReason:
+          type: string
+        reviewedBy:
+          type: string
+        reviewNotes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RiskAssessment:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        riskLevel:
+          type: string
+          enum: [low, medium, high, critical]
+        riskScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        factors:
+          type: array
+          items:
+            type: string
+        recommendation:
+          type: string
+
+    TransactionFilter:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [deposit, withdrawal, transfer, investment]
+        status:
+          type: string
+          enum: [pending, approved, rejected, flagged, completed]
+        riskLevel:
+          type: string
+          enum: [low, medium, high, critical]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        minAmount:
+          type: number
+          format: float
+        maxAmount:
+          type: number
+          format: float
+        currency:
+          type: string
+        flaggedOnly:
+          type: boolean
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+paths:
+  /api/v1/aml/transactions:
+    post:
+      summary: Process a new transaction
+      description: Submit a new transaction for AML monitoring
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '201':
+          description: Transaction processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: List transactions
+      description: Get a list of transactions with optional filtering
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [deposit, withdrawal, transfer, investment]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, flagged, completed]
+        - name: riskLevel
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high, critical]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: minAmount
+          in: query
+          schema:
+            type: number
+            format: float
+        - name: maxAmount
+          in: query
+          schema:
+            type: number
+            format: float
+        - name: currency
+          in: query
+          schema:
+            type: string
+        - name: flaggedOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TransactionResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/aml/transactions/{id}:
+    get:
+      summary: Get transaction details
+      description: Get detailed information about a specific transaction
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/aml/transactions/{id}/flag:
+    post:
+      summary: Flag a transaction
+      description: Flag a transaction for review
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+                - flaggedBy
+              properties:
+                reason:
+                  type: string
+                flaggedBy:
+                  type: string
+      responses:
+        '200':
+          description: Transaction flagged successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/aml/transactions/{id}/review:
+    post:
+      summary: Review a transaction
+      description: Review a flagged transaction
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+                - notes
+                - reviewedBy
+              properties:
+                status:
+                  type: string
+                  enum: [approved, rejected]
+                notes:
+                  type: string
+                reviewedBy:
+                  type: string
+      responses:
+        '200':
+          description: Transaction reviewed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT 

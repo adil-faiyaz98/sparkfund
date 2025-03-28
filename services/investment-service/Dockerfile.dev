@@ -1,0 +1,17 @@
+FROM golang:1.22-alpine
+
+WORKDIR /app
+
+# Install git and netcat for connection testing
+RUN apk add --no-cache git netcat-openbsd
+
+# Install specific version of Air compatible with Go 1.21
+RUN go install github.com/cosmtrek/air@v1.49.0
+
+COPY . .
+
+# Replace the echo command with a COPY command
+COPY wait-for-db.sh /wait-for-db.sh
+RUN chmod +x /wait-for-db.sh
+
+CMD ["/bin/sh", "-c", "/wait-for-db.sh postgres:5432 && air -c .air.toml"]
