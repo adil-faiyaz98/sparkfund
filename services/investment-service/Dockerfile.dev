@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
@@ -8,7 +8,13 @@ RUN apk add --no-cache git netcat-openbsd
 # Install specific version of Air compatible with Go 1.21
 RUN go install github.com/cosmtrek/air@v1.49.0
 
+# Install Swagger CLI tool
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+
 COPY . .
+
+# Generate Swagger documentation
+RUN swag init -g cmd/main.go
 
 # Replace the echo command with a COPY command
 COPY wait-for-db.sh /wait-for-db.sh

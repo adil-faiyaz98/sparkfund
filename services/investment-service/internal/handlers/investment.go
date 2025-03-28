@@ -4,13 +4,40 @@ import (
 	"net/http"
 	"time"
 
+	"investment-service/internal/database"
+	"investment-service/internal/models"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/sparkfund/investment-service/internal/database"
-	"github.com/sparkfund/investment-service/internal/models"
 )
 
-// CreateInvestment creates a new investment
+// CreateInvestment godoc
+// @Summary      Create a new investment
+// @Description  Create a new investment with the provided details
+// @Tags         investments
+// @Accept       json
+// @Produce      json
+// @Param        investment  body      models.Investment  true  "Investment object"
+// @Success      201         {object}  models.Investment
+// @Failure      400         {object}  map[string]string
+// @Failure      401         {object}  map[string]string
+// @Failure      403         {object}  map[string]string
+// @Failure      404         {object}  map[string]string
+// @Failure      500         {object}  map[string]string
+// @Router       /investments [post]
+// @Example      {object}  models.Investment
+// @Example      {
+// @Example        "user_id": 1,
+// @Example        "portfolio_id": 1,
+// @Example        "amount": 1000.00,
+// @Example        "type": "STOCK",
+// @Example        "status": "ACTIVE",
+// @Example        "purchase_date": "2025-03-28T12:00:00Z",
+// @Example        "purchase_price": 150.50,
+// @Example        "symbol": "AAPL",
+// @Example        "quantity": 10,
+// @Example        "notes": "Initial purchase of Apple stock"
+// @Example      }
 func CreateInvestment(c *gin.Context) {
 	var investment models.Investment
 	if err := c.ShouldBindJSON(&investment); err != nil {
@@ -31,7 +58,33 @@ func CreateInvestment(c *gin.Context) {
 	c.JSON(http.StatusCreated, investment)
 }
 
-// GetInvestment retrieves an investment by ID
+// GetInvestment godoc
+// @Summary      Get an investment by ID
+// @Description  Get investment details by ID
+// @Tags         investments
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Investment ID"
+// @Success      200  {object}  models.Investment
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /investments/{id} [get]
+// @Example      {object}  models.Investment
+// @Example      {
+// @Example        "id": 1,
+// @Example        "user_id": 1,
+// @Example        "portfolio_id": 1,
+// @Example        "amount": 1000.00,
+// @Example        "type": "STOCK",
+// @Example        "status": "ACTIVE",
+// @Example        "purchase_date": "2025-03-28T12:00:00Z",
+// @Example        "purchase_price": 150.50,
+// @Example        "symbol": "AAPL",
+// @Example        "quantity": 10,
+// @Example        "notes": "Initial purchase of Apple stock"
+// @Example      }
 func GetInvestment(c *gin.Context) {
 	id := c.Param("id")
 	var investment models.Investment
@@ -44,7 +97,46 @@ func GetInvestment(c *gin.Context) {
 	c.JSON(http.StatusOK, investment)
 }
 
-// ListInvestments retrieves all investments for a user
+// ListInvestments godoc
+// @Summary      List all investments
+// @Description  Get a list of all investments
+// @Tags         investments
+// @Accept       json
+// @Produce      json
+// @Success      200  {array}   models.Investment
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /investments [get]
+// @Example      {array}  models.Investment
+// @Example      [
+// @Example        {
+// @Example          "id": 1,
+// @Example          "user_id": 1,
+// @Example          "portfolio_id": 1,
+// @Example          "amount": 1000.00,
+// @Example          "type": "STOCK",
+// @Example          "status": "ACTIVE",
+// @Example          "purchase_date": "2025-03-28T12:00:00Z",
+// @Example          "purchase_price": 150.50,
+// @Example          "symbol": "AAPL",
+// @Example          "quantity": 10,
+// @Example          "notes": "Initial purchase of Apple stock"
+// @Example        },
+// @Example        {
+// @Example          "id": 2,
+// @Example          "user_id": 1,
+// @Example          "portfolio_id": 1,
+// @Example          "amount": 2000.00,
+// @Example          "type": "STOCK",
+// @Example          "status": "ACTIVE",
+// @Example          "purchase_date": "2025-03-28T12:00:00Z",
+// @Example          "purchase_price": 280.75,
+// @Example          "symbol": "GOOGL",
+// @Example          "quantity": 5,
+// @Example          "notes": "Initial purchase of Google stock"
+// @Example        }
+// @Example      ]
 func ListInvestments(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	var investments []models.Investment
@@ -57,7 +149,35 @@ func ListInvestments(c *gin.Context) {
 	c.JSON(http.StatusOK, investments)
 }
 
-// UpdateInvestment updates an existing investment
+// UpdateInvestment godoc
+// @Summary      Update an investment
+// @Description  Update investment details by ID
+// @Tags         investments
+// @Accept       json
+// @Produce      json
+// @Param        id           path      int             true  "Investment ID"
+// @Param        investment   body      models.Investment  true  "Updated investment object"
+// @Success      200          {object}  models.Investment
+// @Failure      400          {object}  map[string]string
+// @Failure      401          {object}  map[string]string
+// @Failure      403          {object}  map[string]string
+// @Failure      404          {object}  map[string]string
+// @Failure      500          {object}  map[string]string
+// @Router       /investments/{id} [put]
+// @Example      {object}  models.Investment
+// @Example      {
+// @Example        "id": 1,
+// @Example        "user_id": 1,
+// @Example        "portfolio_id": 1,
+// @Example        "amount": 1000.00,
+// @Example        "type": "STOCK",
+// @Example        "status": "ACTIVE",
+// @Example        "purchase_date": "2025-03-28T12:00:00Z",
+// @Example        "purchase_price": 150.50,
+// @Example        "symbol": "AAPL",
+// @Example        "quantity": 10,
+// @Example        "notes": "Updated notes for Apple stock"
+// @Example      }
 func UpdateInvestment(c *gin.Context) {
 	id := c.Param("id")
 	var investment models.Investment
@@ -80,7 +200,19 @@ func UpdateInvestment(c *gin.Context) {
 	c.JSON(http.StatusOK, investment)
 }
 
-// DeleteInvestment deletes an investment
+// DeleteInvestment godoc
+// @Summary      Delete an investment
+// @Description  Delete an investment by ID
+// @Tags         investments
+// @Accept       json
+// @Produce      json
+// @Param        id   path      int  true  "Investment ID"
+// @Success      204  "No Content"
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /investments/{id} [delete]
 func DeleteInvestment(c *gin.Context) {
 	id := c.Param("id")
 	var investment models.Investment
@@ -98,7 +230,31 @@ func DeleteInvestment(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Investment deleted successfully"})
 }
 
-// CreateTransaction creates a new transaction
+// CreateTransaction godoc
+// @Summary      Create a new transaction
+// @Description  Create a new transaction for an investment
+// @Tags         transactions
+// @Accept       json
+// @Produce      json
+// @Param        transaction  body      models.Transaction  true  "Transaction object"
+// @Success      201          {object}  models.Transaction
+// @Failure      400          {object}  map[string]string
+// @Failure      401          {object}  map[string]string
+// @Failure      403          {object}  map[string]string
+// @Failure      404          {object}  map[string]string
+// @Failure      500          {object}  map[string]string
+// @Router       /transactions [post]
+// @Example      {object}  models.Transaction
+// @Example      {
+// @Example        "user_id": 1,
+// @Example        "investment_id": 1,
+// @Example        "type": "BUY",
+// @Example        "amount": 1000.00,
+// @Example        "price": 150.50,
+// @Example        "quantity": 10,
+// @Example        "timestamp": "2025-03-28T12:00:00Z",
+// @Example        "status": "PENDING"
+// @Example      }
 func CreateTransaction(c *gin.Context) {
 	var transaction models.Transaction
 	if err := c.ShouldBindJSON(&transaction); err != nil {
@@ -150,7 +306,17 @@ func CreateTransaction(c *gin.Context) {
 	c.JSON(http.StatusCreated, transaction)
 }
 
-// GetPortfolio retrieves a portfolio by ID
+// GetPortfolio godoc
+// @Summary      Get a portfolio by ID
+// @Description  Get portfolio details by ID including its investments
+// @Tags         portfolios
+// @Accept       json
+// @Produce      json
+// @Param        id   path      string  true  "Portfolio ID"
+// @Success      200  {object}  models.Portfolio
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /portfolios/{id} [get]
 func GetPortfolio(c *gin.Context) {
 	id := c.Param("id")
 	var portfolio models.Portfolio
@@ -163,7 +329,17 @@ func GetPortfolio(c *gin.Context) {
 	c.JSON(http.StatusOK, portfolio)
 }
 
-// CreatePortfolio creates a new portfolio
+// CreatePortfolio godoc
+// @Summary      Create a new portfolio
+// @Description  Create a new portfolio with the provided details
+// @Tags         portfolios
+// @Accept       json
+// @Produce      json
+// @Param        portfolio  body      models.Portfolio  true  "Portfolio object"
+// @Success      201        {object}  models.Portfolio
+// @Failure      400        {object}  map[string]string
+// @Failure      500        {object}  map[string]string
+// @Router       /portfolios [post]
 func CreatePortfolio(c *gin.Context) {
 	var portfolio models.Portfolio
 	if err := c.ShouldBindJSON(&portfolio); err != nil {
@@ -182,7 +358,19 @@ func CreatePortfolio(c *gin.Context) {
 	c.JSON(http.StatusCreated, portfolio)
 }
 
-// UpdatePortfolio updates an existing portfolio
+// UpdatePortfolio godoc
+// @Summary      Update a portfolio
+// @Description  Update portfolio details by ID
+// @Tags         portfolios
+// @Accept       json
+// @Produce      json
+// @Param        id         path      string         true  "Portfolio ID"
+// @Param        portfolio  body      models.Portfolio  true  "Updated portfolio object"
+// @Success      200        {object}  models.Portfolio
+// @Failure      400        {object}  map[string]string
+// @Failure      404        {object}  map[string]string
+// @Failure      500        {object}  map[string]string
+// @Router       /portfolios/{id} [put]
 func UpdatePortfolio(c *gin.Context) {
 	id := c.Param("id")
 	var portfolio models.Portfolio
@@ -207,7 +395,17 @@ func UpdatePortfolio(c *gin.Context) {
 	c.JSON(http.StatusOK, portfolio)
 }
 
-// DeletePortfolio deletes a portfolio
+// DeletePortfolio godoc
+// @Summary      Delete a portfolio
+// @Description  Delete a portfolio by ID
+// @Tags         portfolios
+// @Accept       json
+// @Produce      json
+// @Param        id   path      string  true  "Portfolio ID"
+// @Success      200  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /portfolios/{id} [delete]
 func DeletePortfolio(c *gin.Context) {
 	id := c.Param("id")
 	var portfolio models.Portfolio

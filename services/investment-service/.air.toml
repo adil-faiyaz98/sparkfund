@@ -6,5 +6,5 @@ tmp_dir = "tmp"
   bin = "./tmp/main"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor"]
-  include_ext = ["go", "tpl", "tmpl", "html"]
+  include_ext = ["go", "tpl", "tmpl", "html", "json", "yaml"]
   exclude_regex = ["_test.go"] 

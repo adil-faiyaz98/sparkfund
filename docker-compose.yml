@@ -16,18 +16,17 @@ services:
       - LOG_LEVEL=debug
     volumes:
       - ./services/api-gateway:/app
-    depends_on:
-      - investment-service
-      - redis
+    networks:
+      - sparkfund-network
 
   investment-service:
     build:
       context: ./services/investment-service
       dockerfile: Dockerfile.dev
     ports:
-      - "8081:8080"
+      - "8081:8081"
     environment:
-      - PORT=8080
+      - PORT=8081
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=sparkfund
@@ -40,9 +39,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - sparkfund-network
 
   postgres:
     image: postgres:14-alpine
+    container_name: sparkfund-postgres
     ports:
       - "5432:5432"
     environment:
@@ -57,16 +59,22 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - sparkfund-network
 
   redis:
     image: redis:7-alpine
+    container_name: sparkfund-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - sparkfund-network
 
   prometheus:
     image: prom/prometheus:v2.45.0
+    container_name: sparkfund-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -76,9 +84,12 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--web.console.libraries=/usr/share/prometheus/console_libraries"
       - "--web.console.templates=/usr/share/prometheus/consoles"
+    networks:
+      - sparkfund-network
 
   grafana:
     image: grafana/grafana:10.0.0
+    container_name: sparkfund-grafana
     ports:
       - "3000:3000"
     environment:
@@ -89,8 +100,15 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+    networks:
+      - sparkfund-network
 
 volumes:
   postgres_data:
   redis_data:
   grafana_data:
+
+networks:
+  sparkfund-network:
+    name: sparkfund-network
+    driver: bridge

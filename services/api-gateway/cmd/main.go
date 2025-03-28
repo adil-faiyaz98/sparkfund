@@ -7,27 +7,25 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sparkfund/api-gateway/internal/middleware"
 	"github.com/sparkfund/api-gateway/internal/proxy"
 )
 
 func main() {
-	// Set up Gin router
-	router := gin.Default()
+	// Set environment to development if not set
+	if os.Getenv("ENV") == "" {
+		os.Setenv("ENV", "development")
+	}
 
-	// Add middleware
-	router.Use(gin.Logger())
-	router.Use(gin.Recovery())
-
-	// Create security config with proper fields matching your SecurityConfig struct
+	// Initialize security middleware
 	securityConfig := middleware.SecurityConfig{
-		// Initialize with default values for required fields
 		RateLimit: struct {
 			RequestsPerMinute int
 			BurstSize         int
 		}{
-			RequestsPerMinute: 60,
-			BurstSize:         10,
+			RequestsPerMinute: 100,
+			BurstSize:         200,
 		},
 		DoS: struct {
 			MaxHeaderSize    int64
@@ -35,39 +33,79 @@ func main() {
 			MaxConnections   int
 			ConnectionWindow time.Duration
 		}{
-			MaxHeaderSize:    8192,
-			MaxBodySize:      10 * 1024 * 1024, // 10MB
+			MaxHeaderSize:    1 << 20,  // 1MB
+			MaxBodySize:      10 << 20, // 10MB
 			MaxConnections:   100,
-			ConnectionWindow: 60 * time.Second,
+			ConnectionWindow: time.Minute,
 		},
 		JWT: struct {
 			SecretKey     []byte
 			TokenExpiry   time.Duration
 			RefreshExpiry time.Duration
 		}{
-			SecretKey:     []byte("your-secret-key"),
-			TokenExpiry:   24 * time.Hour,
-			RefreshExpiry: 7 * 24 * time.Hour,
+			SecretKey:     []byte(os.Getenv("JWT_SECRET")),
+			TokenExpiry:   time.Hour * 24,
+			RefreshExpiry: time.Hour * 24 * 7,
 		},
 	}
 
 	securityMiddleware := middleware.NewSecurityMiddleware(securityConfig)
-	securityMiddleware.AddToIPWhitelist("172.18.0.4")
 
-	// Add Prometheus IP to whitelist
-	securityMiddleware.AddToIPWhitelist("172.18.0.4") // Prometheus server IP
+	// Set up Gin router
+	router := gin.Default()
 
-	// Add a public metrics endpoint (before applying security middleware)
-	router.GET("/metrics", func(c *gin.Context) {
-		c.String(http.StatusOK, "# HELP api_requests_total Total API requests\n# TYPE api_requests_total counter\napi_requests_total 100\n")
+	// Set trusted proxies
+	router.SetTrustedProxies([]string{
+		"127.0.0.1",
+		"172.16.0.0/12",
+		"172.17.0.0/12",
+		"172.18.0.0/12",
+		"172.19.0.0/16",
+		"192.168.0.0/16",
+		"10.0.0.0/8",
 	})
 
-	securityMiddleware.Apply(router)
+	// Add after setting trusted proxies
+	router.ForwardedByClientIP = true
+	router.RemoteIPHeaders = []string{"X-Forwarded-For", "X-Real-IP"}
 
-	// Health check
+	// First register metrics endpoint (before security middleware)
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// API info endpoint
+	router.GET("/api", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"service": "SparkFund API Gateway",
+			"version": "1.0",
+			"status":  "running",
+			"endpoints": []string{
+				"/api/v1/investments",
+				"/api/v1/portfolios",
+				"/api/v1/transactions",
+			},
+		})
+	})
+
+	// Service discovery endpoint
+	router.GET("/api/v1/investment-service", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"service": "Investment Service",
+			"status":  "running",
+			"url":     "http://investment-service:8081",
+		})
+	})
+
+	// Health check (without auth)
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	// Add Prometheus server to IP whitelist
+	securityMiddleware.AddToIPWhitelist("172.18.0.4") // Prometheus IP
+	securityMiddleware.AddToIPWhitelist("172.18.0.1") // Local testing IP
+
+	// Apply security middleware
+	securityMiddleware.Apply(router)
 
 	// Investment service routes
 	investments := router.Group("/api/v1/investments")

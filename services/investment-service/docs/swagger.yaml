@@ -1,0 +1,455 @@
+basePath: /api/v1
+definitions:
+  models.Investment:
+    properties:
+      amount:
+        type: number
+      created_at:
+        type: string
+      id:
+        type: integer
+      notes:
+        type: string
+      portfolio_id:
+        description: Add this field to match with the foreignKey in Portfolio
+        type: integer
+      purchase_date:
+        type: string
+      purchase_price:
+        type: number
+      quantity:
+        type: number
+      sell_date:
+        type: string
+      sell_price:
+        type: number
+      status:
+        description: e.g., "ACTIVE", "SOLD", "PENDING"
+        example: ACTIVE
+        type: string
+      symbol:
+        description: e.g., "AAPL", "BTC", "ETH"
+        example: AAPL
+        type: string
+      type:
+        description: e.g., "STOCK", "CRYPTO", "REAL_ESTATE"
+        example: STOCK
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.Portfolio:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      last_updated:
+        type: string
+      name:
+        type: string
+      total_value:
+        type: number
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.Transaction:
+    properties:
+      amount:
+        type: number
+      created_at:
+        type: string
+      id:
+        type: integer
+      investment_id:
+        type: integer
+      price:
+        type: number
+      quantity:
+        type: number
+      status:
+        description: e.g., "COMPLETED", "PENDING", "FAILED"
+        example: COMPLETED
+        type: string
+      timestamp:
+        type: string
+      transaction_id:
+        type: string
+      type:
+        description: e.g., "BUY", "SELL"
+        example: BUY
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+host: localhost:8081
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: A service for managing investments and portfolios.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Investment Service API
+  version: "1.0"
+paths:
+  /investments:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all investments
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Investment'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List all investments
+      tags:
+      - investments
+    post:
+      consumes:
+      - application/json
+      description: Create a new investment with the provided details
+      parameters:
+      - description: Investment object
+        in: body
+        name: investment
+        required: true
+        schema:
+          $ref: '#/definitions/models.Investment'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Investment'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new investment
+      tags:
+      - investments
+  /investments/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an investment by ID
+      parameters:
+      - description: Investment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an investment
+      tags:
+      - investments
+    get:
+      consumes:
+      - application/json
+      description: Get investment details by ID
+      parameters:
+      - description: Investment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Investment'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an investment by ID
+      tags:
+      - investments
+    put:
+      consumes:
+      - application/json
+      description: Update investment details by ID
+      parameters:
+      - description: Investment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated investment object
+        in: body
+        name: investment
+        required: true
+        schema:
+          $ref: '#/definitions/models.Investment'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Investment'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update an investment
+      tags:
+      - investments
+  /portfolios:
+    post:
+      consumes:
+      - application/json
+      description: Create a new portfolio with the provided details
+      parameters:
+      - description: Portfolio object
+        in: body
+        name: portfolio
+        required: true
+        schema:
+          $ref: '#/definitions/models.Portfolio'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Portfolio'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new portfolio
+      tags:
+      - portfolios
+  /portfolios/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a portfolio by ID
+      parameters:
+      - description: Portfolio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a portfolio
+      tags:
+      - portfolios
+    get:
+      consumes:
+      - application/json
+      description: Get portfolio details by ID including its investments
+      parameters:
+      - description: Portfolio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Portfolio'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a portfolio by ID
+      tags:
+      - portfolios
+    put:
+      consumes:
+      - application/json
+      description: Update portfolio details by ID
+      parameters:
+      - description: Portfolio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated portfolio object
+        in: body
+        name: portfolio
+        required: true
+        schema:
+          $ref: '#/definitions/models.Portfolio'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Portfolio'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a portfolio
+      tags:
+      - portfolios
+  /transactions:
+    post:
+      consumes:
+      - application/json
+      description: Create a new transaction for an investment
+      parameters:
+      - description: Transaction object
+        in: body
+        name: transaction
+        required: true
+        schema:
+          $ref: '#/definitions/models.Transaction'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Transaction'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new transaction
+      tags:
+      - transactions
+swagger: "2.0"

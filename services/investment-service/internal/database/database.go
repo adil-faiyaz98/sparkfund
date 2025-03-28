@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/sparkfund/investment-service/internal/models"
+	"investment-service/internal/models"
 )
 
 var DB *gorm.DB
@@ -41,9 +41,16 @@ func InitDB() {
 }
 
 func Migrate(db *gorm.DB) error {
-	err := db.AutoMigrate(&models.Portfolio{})
-	if err != nil {
+	// First migrate Portfolio as it's referenced by Investment
+	if err := db.AutoMigrate(&models.Portfolio{}); err != nil {
 		return err
 	}
-	return db.AutoMigrate(&models.Investment{}, &models.Transaction{})
+
+	// Then migrate Investment as it's referenced by Transaction
+	if err := db.AutoMigrate(&models.Investment{}); err != nil {
+		return err
+	}
+
+	// Finally migrate Transaction
+	return db.AutoMigrate(&models.Transaction{})
 }
