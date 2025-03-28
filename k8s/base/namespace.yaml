@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: sparkfund
-  labels:
-    name: sparkfund
-    environment: base

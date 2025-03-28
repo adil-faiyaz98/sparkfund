@@ -1,72 +1,62 @@
-.PHONY: build run test clean migrate-up migrate-down lint mock dev dev-down fmt check help
+.PHONY: build test deploy clean
 
-# Build variables
-BINARY_NAME=email-service
-MAIN_FILE=cmd/main.go
-
-# Go commands
-GOCMD=go
-GOBUILD=$(GOCMD) build
-GOTEST=$(GOCMD) test
-GOCLEAN=$(GOCMD) clean
-GOMOD=$(GOCMD) mod
-GOTIDY=$(GOCMD) mod tidy
-
-# Build the application
+# Build all services
 build:
-	$(GOBUILD) -o $(BINARY_NAME) $(MAIN_FILE)
-
-# Run the application
-run: build
-	./$(BINARY_NAME)
+	@echo "Building services..."
+	docker-compose build
 
 # Run tests
 test:
-	$(GOTEST) -v ./...
+	@echo "Running tests..."
+	go test ./... -v
 
-# Clean build artifacts
+# Deploy to Kubernetes
+deploy:
+	@echo "Deploying to Kubernetes..."
+	helm upgrade --install aml-service ./helm/aml-service --namespace sparkfund
+	helm upgrade --install kyc-service ./helm/kyc-service --namespace sparkfund
+
+# Clean up
 clean:
-	$(GOCLEAN)
-	rm -f $(BINARY_NAME)
+	@echo "Cleaning up..."
+	docker-compose down -v
+	rm -rf dist/
+
+# Generate protobuf
+proto:
+	@echo "Generating protobuf..."
+	protoc --go_out=. --go_opt=paths=source_relative \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		proto/*.proto
+
+# Run locally
+run:
+	@echo "Running services locally..."
+	docker-compose up
+
+# Run with hot reload
+dev:
+	@echo "Running services with hot reload..."
+	docker-compose -f docker-compose.dev.yml up
+
+# Check code style
+lint:
+	@echo "Running linter..."
+	golangci-lint run
+
+# Generate swagger docs
+swagger:
+	@echo "Generating swagger documentation..."
+	swag init -g cmd/main.go
 
 # Run database migrations
-migrate-up:
-	migrate -path migrations -database "postgres://postgres:postgres@localhost:5432/email_service?sslmode=disable" up
+migrate:
+	@echo "Running database migrations..."
+	go run cmd/migrate/main.go
 
-migrate-down:
-	migrate -path migrations -database "postgres://postgres:postgres@localhost:5432/email_service?sslmode=disable" down
-
-# Generate mocks
-mock:
-	mockgen -source=internal/repositories/repository.go -destination=internal/repositories/mock_repository.go
-
-# Start development environment
-dev:
-	docker-compose up -d
-
-# Stop development environment
-dev-down:
-	docker-compose down
-
-# Format code
-fmt:
-	$(GOCMD) fmt ./...
-
-# Run all checks
-check: fmt lint test
-
-# Show help
-help:
-	@echo "Available commands:"
-	@echo "  build        - Build the application"
-	@echo "  run          - Build and run the application"
-	@echo "  test         - Run tests"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  migrate-up   - Run database migrations up"
-	@echo "  migrate-down - Run database migrations down"
-	@echo "  mock         - Generate mocks"
-	@echo "  dev          - Start development environment"
-	@echo "  dev-down     - Stop development environment"
-	@echo "  fmt          - Format code"
-	@echo "  check        - Run all checks (fmt, lint, test)"
-	@echo "  help         - Show this help message"
+# Run security scan
+security:
+	@echo "Running security scan..."
+	gosec ./...
+	trivy image sparkfund/aml-service:latest
+	trivy image sparkfund/kyc-service:latest

@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aml-service-pdb
+  namespace: sparkfund
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: aml-service 

@@ -1,0 +1,67 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: auth-service-alerts
+  namespace: sparkfund
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: auth-service
+    rules:
+    - alert: AuthServiceHighErrorRate
+      expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: High error rate detected in Auth service
+        description: "Error rate is above 10% for the last 5 minutes"
+    - alert: AuthServiceHighLatency
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High latency detected in Auth service
+        description: "95th percentile latency is above 1 second for the last 5 minutes"
+    - alert: AuthServiceHighCPUUsage
+      expr: container_cpu_usage_seconds_total{container="auth-service"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High CPU usage detected in Auth service
+        description: "CPU usage is above 80% for the last 5 minutes"
+    - alert: AuthServiceHighMemoryUsage
+      expr: container_memory_usage_bytes{container="auth-service"} / container_spec_memory_limit_bytes{container="auth-service"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High memory usage detected in Auth service
+        description: "Memory usage is above 80% for the last 5 minutes"
+    - alert: AuthServiceDown
+      expr: up{job="auth-service"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: Auth service is down
+        description: "Auth service has been down for more than 1 minute"
+    - alert: AuthServiceHighLoginAttempts
+      expr: rate(auth_login_attempts_total[5m]) > 100
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High login attempts detected in Auth service
+        description: "Login attempts are above 100 per minute for the last 5 minutes"
+    - alert: AuthServiceHighFailedLogins
+      expr: rate(auth_failed_logins_total[5m]) / rate(auth_login_attempts_total[5m]) > 0.2
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: High failed login rate detected
+        description: "More than 20% of login attempts are failing for the last 5 minutes" 

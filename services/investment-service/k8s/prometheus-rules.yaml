@@ -1,0 +1,75 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: investment-service-alerts
+  namespace: sparkfund
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: investment-service
+    rules:
+    - alert: InvestmentServiceHighErrorRate
+      expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: High error rate detected in Investment service
+        description: "Error rate is above 10% for the last 5 minutes"
+    - alert: InvestmentServiceHighLatency
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High latency detected in Investment service
+        description: "95th percentile latency is above 1 second for the last 5 minutes"
+    - alert: InvestmentServiceHighCPUUsage
+      expr: container_cpu_usage_seconds_total{container="investment-service"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High CPU usage detected in Investment service
+        description: "CPU usage is above 80% for the last 5 minutes"
+    - alert: InvestmentServiceHighMemoryUsage
+      expr: container_memory_usage_bytes{container="investment-service"} / container_spec_memory_limit_bytes{container="investment-service"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High memory usage detected in Investment service
+        description: "Memory usage is above 80% for the last 5 minutes"
+    - alert: InvestmentServiceDown
+      expr: up{job="investment-service"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: Investment service is down
+        description: "Investment service has been down for more than 1 minute"
+    - alert: InvestmentServiceHighTradeVolume
+      expr: rate(investment_trades_total[5m]) > 1000
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High trade volume detected in Investment service
+        description: "Trade volume is above 1000 per minute for the last 5 minutes"
+    - alert: InvestmentServiceHighRiskExposure
+      expr: investment_portfolio_risk_score > 0.8
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: High risk exposure detected in Investment portfolio
+        description: "Portfolio risk score is above 0.8 for the last 5 minutes"
+    - alert: InvestmentServiceHighPositionConcentration
+      expr: investment_position_concentration > 0.2
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High position concentration detected
+        description: "Single position concentration is above 20% for the last 5 minutes" 

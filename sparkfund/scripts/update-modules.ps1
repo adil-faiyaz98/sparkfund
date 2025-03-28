@@ -1,16 +1,11 @@
 $services = @(
     "api-gateway",
+    "investment-service",
+    "auth-service",
     "kyc-service",
     "aml-service",
     "fraud-detection-service",
-    "credit-scoring-service",
-    "risk-management-service",
-    "notification-service",
-    "consent-management-service",
-    "logging-service",
-    "security-service",
-    "email-service",
-    "blockchain-service"
+    "credit-scoring-service"
 )
 
 foreach ($service in $services) {

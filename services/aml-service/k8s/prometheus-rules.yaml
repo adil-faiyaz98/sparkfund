@@ -1,0 +1,67 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: aml-service-alerts
+  namespace: sparkfund
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: aml-service
+    rules:
+    - alert: AMLServiceHighErrorRate
+      expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: High error rate detected in AML service
+        description: "Error rate is above 10% for the last 5 minutes"
+    - alert: AMLServiceHighLatency
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High latency detected in AML service
+        description: "95th percentile latency is above 1 second for the last 5 minutes"
+    - alert: AMLServiceHighCPUUsage
+      expr: container_cpu_usage_seconds_total{container="aml-service"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High CPU usage detected in AML service
+        description: "CPU usage is above 80% for the last 5 minutes"
+    - alert: AMLServiceHighMemoryUsage
+      expr: container_memory_usage_bytes{container="aml-service"} / container_spec_memory_limit_bytes{container="aml-service"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High memory usage detected in AML service
+        description: "Memory usage is above 80% for the last 5 minutes"
+    - alert: AMLServiceDown
+      expr: up{job="aml-service"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: AML service is down
+        description: "AML service has been down for more than 1 minute"
+    - alert: AMLServiceHighTransactionVolume
+      expr: rate(aml_transactions_total[5m]) > 100
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High transaction volume detected in AML service
+        description: "Transaction volume is above 100 per minute for the last 5 minutes"
+    - alert: AMLServiceHighRiskTransactions
+      expr: rate(aml_high_risk_transactions_total[5m]) / rate(aml_transactions_total[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: High proportion of high-risk transactions detected
+        description: "More than 10% of transactions are marked as high risk for the last 5 minutes" 

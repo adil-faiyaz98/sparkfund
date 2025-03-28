@@ -1,0 +1,75 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: api-gateway-alerts
+  namespace: sparkfund
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: api-gateway
+    rules:
+    - alert: APIGatewayHighErrorRate
+      expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: High error rate detected in API Gateway
+        description: "Error rate is above 10% for the last 5 minutes"
+    - alert: APIGatewayHighLatency
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High latency detected in API Gateway
+        description: "95th percentile latency is above 1 second for the last 5 minutes"
+    - alert: APIGatewayHighCPUUsage
+      expr: container_cpu_usage_seconds_total{container="api-gateway"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High CPU usage detected in API Gateway
+        description: "CPU usage is above 80% for the last 5 minutes"
+    - alert: APIGatewayHighMemoryUsage
+      expr: container_memory_usage_bytes{container="api-gateway"} / container_spec_memory_limit_bytes{container="api-gateway"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High memory usage detected in API Gateway
+        description: "Memory usage is above 80% for the last 5 minutes"
+    - alert: APIGatewayDown
+      expr: up{job="api-gateway"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: API Gateway is down
+        description: "API Gateway has been down for more than 1 minute"
+    - alert: APIGatewayHighRequestRate
+      expr: rate(http_requests_total[5m]) > 1000
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High request rate detected in API Gateway
+        description: "Request rate is above 1000 per minute for the last 5 minutes"
+    - alert: APIGatewayHighRateLimitHits
+      expr: rate(rate_limit_hits_total[5m]) > 100
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: High rate limit hits detected in API Gateway
+        description: "Rate limit hits are above 100 per minute for the last 5 minutes"
+    - alert: APIGatewayCircuitBreakerOpen
+      expr: circuit_breaker_state{state="open"} == 1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: Circuit breaker is open in API Gateway
+        description: "Circuit breaker has been open for more than 1 minute" 
