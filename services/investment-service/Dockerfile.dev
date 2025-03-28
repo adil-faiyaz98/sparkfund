@@ -2,8 +2,8 @@ FROM golang:1.21-alpine
 
 WORKDIR /app
 
-# Install git and netcat for connection testing
-RUN apk add --no-cache git netcat-openbsd
+# Install git, netcat, and postgresql-client for connection testing
+RUN apk add --no-cache git netcat-openbsd postgresql-client
 
 # Install Air for hot reloading
 RUN go install github.com/cosmtrek/air@v1.49.0

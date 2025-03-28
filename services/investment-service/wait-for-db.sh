@@ -3,11 +3,14 @@
 
 set -e
 
-host="$1"
+hostport="$1"
 shift
 cmd="$@"
 
-until nc -z $host 5432; do
+host=$(echo $hostport | cut -d: -f1)
+port=$(echo $hostport | cut -d: -f2)
+
+until nc -z $host $port; do
   >&2 echo "Postgres is unavailable - sleeping"
   sleep 1
 done
