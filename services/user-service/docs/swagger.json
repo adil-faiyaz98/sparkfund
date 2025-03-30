@@ -1,0 +1,40 @@
+{
+  "swagger": "3.0.0",
+  "info": {
+    "title": "User Service API",
+    "description": "API for managing user accounts, authentication, and profile information",
+    "version": "1.0.0",
+    "contact": {
+      "name": "SparkFund API Team",
+      "email": "api@sparkfund.com"
+    },
+    "license": {
+      "name": "Proprietary",
+      "url": "https://sparkfund.com/terms"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://users.sparkfund.com",
+      "description": "Production server"
+    },
+    {
+      "url": "https://users.staging.sparkfund.com",
+      "description": "Staging server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  }
+} 

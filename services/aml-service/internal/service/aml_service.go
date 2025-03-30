@@ -6,9 +6,10 @@ import (
 	"errors"
 	"time"
 
+	"aml-service/internal/model"
+	"aml-service/internal/repository"
+
 	"github.com/google/uuid"
-	"github.com/sparkfund/aml-service/internal/model"
-	"github.com/sparkfund/aml-service/internal/repository"
 )
 
 type AMLService interface {

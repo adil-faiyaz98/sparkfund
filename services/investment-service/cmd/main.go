@@ -1,16 +1,22 @@
 package main
 
 import (
-	"log"
+	"context"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	_ "investment-service/docs" // This is where the generated docs will be
+	_ "investment-service/docs"
+	"investment-service/internal/config"
 	"investment-service/internal/database"
 	"investment-service/internal/handlers"
+	"investment-service/internal/middleware"
 
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -29,87 +35,122 @@ import (
 
 // @host      localhost:8081
 // @BasePath  /api/v1
-// @schemes   http
+// @schemes   http https
+
+var version = "development" // Replaced during build
 
 func main() {
+	// Set up logging
+	log := logrus.New()
+	log.SetFormatter(&logrus.JSONFormatter{})
+
+	// Load configuration
+	if err := config.Load(); err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	cfg := config.Get()
+
+	// Set log level from config
+	logLevel, err := logrus.ParseLevel(cfg.Log.Level)
+	if err != nil {
+		log.Warnf("Invalid log level %s, defaulting to info", cfg.Log.Level)
+		logLevel = logrus.InfoLevel
+	}
+	log.SetLevel(logLevel)
+
 	// Initialize database
-	database.InitDB()
+	if err := database.InitDB(); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
 
-	// Initialize Prometheus metrics
-	buildInfo := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "go_build_info",
-			Help: "Information about the Go build.",
-		},
-		[]string{"version", "revision", "branch", "goversion"},
-	)
+	// Set Gin mode
+	if os.Getenv("APP_ENV") == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
-	// Register Prometheus collectors
-	prometheus.MustRegister(buildInfo)
-
-	// Set up Gin router with proper logging
+	// Set up router with middlewares
 	router := gin.New()
-	router.Use(gin.Logger()) // Add logger middleware to see requests
+
+	// Add middlewares in correct order
+	router.Use(middleware.RequestLogger())
 	router.Use(gin.Recovery())
+	router.Use(middleware.SecurityHeaders())
+	router.Use(middleware.CORS())
+	router.Use(middleware.RateLimiter())
 
-	// Set trusted proxies explicitly
-	router.SetTrustedProxies([]string{
-		"127.0.0.1",
-		"172.16.0.0/12",
-		"172.17.0.0/12",
-		"172.18.0.0/12",
-		"172.19.0.0/16",
-		"192.168.0.0/16",
-		"10.0.0.0/8",
-	})
+	// Health endpoints (no auth required)
+	router.GET("/health", handlers.HealthCheck)
+	router.GET("/live", handlers.LivenessCheck)
+	router.GET("/ready", handlers.ReadinessCheck)
 
-	// Public endpoints
-	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+	// Metrics endpoint
+	if cfg.Metrics.Enabled {
+		router.GET(cfg.Metrics.Path, gin.WrapH(promhttp.Handler()))
+	}
 
-	// Swagger documentation
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.URL("/swagger/doc.json")))
+	// Swagger docs (disable in production)
+	if os.Getenv("APP_ENV") != "production" {
+		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
-	// API routes (no authentication for local development)
+	// API routes (with auth)
 	api := router.Group("/api/v1")
+	api.Use(middleware.JWTAuth())
+
+	// Set up routes
+	investments := api.Group("/investments")
 	{
-		// Investment routes
-		investments := api.Group("/investments")
-		{
-			investments.POST("/", handlers.CreateInvestment)
-			investments.GET("/:id", handlers.GetInvestment)
-			investments.GET("/", handlers.ListInvestments)
-			investments.PUT("/:id", handlers.UpdateInvestment)
-			investments.DELETE("/:id", handlers.DeleteInvestment)
-		}
-
-		// Portfolio routes
-		portfolios := api.Group("/portfolios")
-		{
-			portfolios.POST("/", handlers.CreatePortfolio)
-			portfolios.GET("/:id", handlers.GetPortfolio)
-			portfolios.PUT("/:id", handlers.UpdatePortfolio)
-			portfolios.DELETE("/:id", handlers.DeletePortfolio)
-		}
-
-		// Transaction routes
-		transactions := api.Group("/transactions")
-		{
-			transactions.POST("/", handlers.CreateTransaction)
-		}
+		investments.POST("/", handlers.CreateInvestment)
+		investments.GET("/:id", handlers.GetInvestment)
+		investments.GET("/", handlers.ListInvestments)
+		investments.PUT("/:id", handlers.UpdateInvestment)
+		investments.DELETE("/:id", handlers.DeleteInvestment)
 	}
 
-	// Get port from environment variable or use default
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081" // Make sure this matches the port in docker-compose
+	portfolios := api.Group("/portfolios")
+	{
+		portfolios.POST("/", handlers.CreatePortfolio)
+		portfolios.GET("/:id", handlers.GetPortfolio)
+		portfolios.PUT("/:id", handlers.UpdatePortfolio)
+		portfolios.DELETE("/:id", handlers.DeletePortfolio)
 	}
 
-	// Start server on the correct port
-	log.Printf("Investment Service starting on port %s", port)
-	if err := router.Run("0.0.0.0:" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	transactions := api.Group("/transactions")
+	{
+		transactions.POST("/", handlers.CreateTransaction)
 	}
+
+	// Create HTTP server
+	server := &http.Server{
+		Addr:         ":" + cfg.Server.Port,
+		Handler:      router,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+		IdleTimeout:  cfg.Server.IdleTimeout,
+	}
+
+	// Start server in goroutine
+	go func() {
+		log.Infof("Starting server on port %s", cfg.Server.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	// Graceful shutdown
+	log.Info("Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Info("Server exited gracefully")
 }

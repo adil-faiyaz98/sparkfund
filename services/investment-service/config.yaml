@@ -1,0 +1,48 @@
+server:
+  port: 8081
+  readTimeout: 10
+  writeTimeout: 10
+  idleTimeout: 120
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: investment_service
+  sslmode: disable
+
+security:
+  cors:
+    allowedOrigins:
+      - "*"
+    allowedMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowedHeaders:
+      - Content-Type
+      - Authorization
+    exposedHeaders:
+      - Content-Length
+    allowCredentials: true
+    maxAge: 3600
+
+investment:
+  minInvestmentAmount: 100
+  maxInvestmentAmount: 1000000
+  supportedCurrencies:
+    - USD
+    - EUR
+    - GBP
+  riskLevels:
+    - low
+    - medium
+    - high
+  investmentTypes:
+    - stocks
+    - bonds
+    - mutual_funds
+    - etfs 

@@ -1,7 +1,7 @@
 .PHONY: all build test deploy clean services
 
 # List of all services
-SERVICES := kyc-service auth-service aml-service credit-scoring-service investment-service
+SERVICES := kyc-service auth-service aml-service investment-service
 
 # Build all services
 all: build

@@ -1,0 +1,93 @@
+replicaCount: 3
+
+image:
+  repository: sparkfund/kyc-service
+  tag: latest
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: kyc.sparkfund.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - kyc-service
+        topologyKey: kubernetes.io/hostname
+
+config:
+  server:
+    port: 8080
+    shutdownTimeout: 30s
+  database:
+    host: postgres
+    port: 5432
+    name: kyc
+    user: kyc
+    password: kyc
+    sslMode: disable
+  log:
+    level: info
+    format: json
+  metrics:
+    enabled: true
+    port: 9090
+    path: /metrics
+  security:
+    jwtSecret: your-jwt-secret
+    jwtExpiry: 24h
+    cors:
+      allowedOrigins: ["*"]
+      allowedMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      allowedHeaders: ["Content-Type", "Authorization"]
+  elasticsearch:
+    url: http://elasticsearch:9200
+    indexPrefix: kyc-service
+  jaeger:
+    endpoint: http://jaeger:14268/api/traces
+    samplingRate: 1.0
+
+secrets:
+  jwtSecret: your-jwt-secret
+  dbPassword: kyc 

@@ -1,7 +1,8 @@
 package database
 
 import (
-	"github.com/sparkfund/aml-service/internal/model"
+	"aml-service/internal/model"
+
 	"gorm.io/gorm"
 )
 

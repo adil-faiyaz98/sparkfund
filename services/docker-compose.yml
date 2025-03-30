@@ -1,0 +1,270 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: kyc
+      POSTGRES_PASSWORD: kyc
+      POSTGRES_DB: kyc
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyc"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q 'status.*green'"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "6831:6831/udp"  # jaeger-agent compact thrift compact protocol
+      - "6832:6832/udp"  # jaeger-agent binary thrift compact protocol
+      - "5778:5778"      # jaeger-agent configs
+      - "16686:16686"    # jaeger-query
+      - "4317:4317"      # OTLP gRPC
+      - "4318:4318"      # OTLP HTTP
+      - "14250:14250"    # jaeger-agent HTTP
+      - "14268:14268"    # jaeger-agent HTTP
+      - "14269:14269"    # jaeger-agent metrics
+      - "9411:9411"      # jaeger-agent ZIPKIN
+    volumes:
+      - jaeger_data:/var/lib/jaeger
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:16686/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:10.0.3
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kyc-service:
+    build:
+      context: ./kyc-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=kyc
+      - DB_PASSWORD=kyc
+      - DB_NAME=kyc
+      - DB_SSL_MODE=disable
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=json
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9090
+      - METRICS_PATH=/metrics
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX_PREFIX=kyc-service
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_SAMPLING_RATE=1.0
+      - JWT_SECRET=your-jwt-secret
+      - JWT_EXPIRY=24h
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+
+  investment-service:
+    build:
+      context: ./investment-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=investment
+      - DB_PASSWORD=investment
+      - DB_NAME=investment
+      - DB_SSL_MODE=disable
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=json
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9090
+      - METRICS_PATH=/metrics
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX_PREFIX=investment-service
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_SAMPLING_RATE=1.0
+      - JWT_SECRET=your-jwt-secret
+      - JWT_EXPIRY=24h
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+
+  aml-service:
+    build:
+      context: ./aml-service
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=aml
+      - DB_PASSWORD=aml
+      - DB_NAME=aml
+      - DB_SSL_MODE=disable
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=json
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9090
+      - METRICS_PATH=/metrics
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX_PREFIX=aml-service
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_SAMPLING_RATE=1.0
+      - JWT_SECRET=your-jwt-secret
+      - JWT_EXPIRY=24h
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=auth
+      - DB_PASSWORD=auth
+      - DB_NAME=auth
+      - DB_SSL_MODE=disable
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=json
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9090
+      - METRICS_PATH=/metrics
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX_PREFIX=auth-service
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_SAMPLING_RATE=1.0
+      - JWT_SECRET=your-jwt-secret
+      - JWT_EXPIRY=24h
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8080"
+    environment:
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=json
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9090
+      - METRICS_PATH=/metrics
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX_PREFIX=api-gateway
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_SAMPLING_RATE=1.0
+      - JWT_SECRET=your-jwt-secret
+      - JWT_EXPIRY=24h
+      - KYC_SERVICE_URL=http://kyc-service:8080
+      - INVESTMENT_SERVICE_URL=http://investment-service:8080
+      - AML_SERVICE_URL=http://aml-service:8080
+      - AUTH_SERVICE_URL=http://auth-service:8080
+    depends_on:
+      - kyc-service
+      - investment-service
+      - aml-service
+      - auth-service
+      elasticsearch:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  elasticsearch_data:
+  jaeger_data:
+  prometheus_data:
+  grafana_data: 
