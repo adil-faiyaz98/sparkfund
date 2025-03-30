@@ -3,22 +3,33 @@ package service
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 	"time"
-	"math/rand"
 
-	"kyc-service/internal/models"
-	"kyc-service/internal/repository"
+	"github.com/google/uuid"
+
+	"sparkfund/services/kyc-service/internal/ai"
+	"sparkfund/services/kyc-service/internal/models"
+	"sparkfund/services/kyc-service/internal/repository"
 )
 
 // KYCService handles business logic for KYC operations
 type KYCService struct {
-	repo *repository.KYCRepository
+	kycRepo    *repository.KYCRepository
+	docRepo    *repository.DocumentRepository
+	fraudModel ai.FraudModel
 }
 
 // NewKYCService creates a new KYC service instance
-func NewKYCService() *KYCService {
+func NewKYCService(
+	kycRepo *repository.KYCRepository,
+	docRepo *repository.DocumentRepository,
+	fraudModel ai.FraudModel,
+) *KYCService {
 	return &KYCService{
-		repo: repository.NewKYCRepository(),
+		kycRepo:    kycRepo,
+		docRepo:    docRepo,
+		fraudModel: fraudModel,
 	}
 }
 
@@ -37,126 +48,112 @@ func (s *KYCService) checkSanctions(kyc *models.KYC) (bool, error) {
 
 }
 
-// CreateKYC creates a new KYC record
-func (s *KYCService) CreateKYC(ctx context.Context, kyc *models.KYC) error {
-	// Validate required fields
-	if err := s.validateKYC(kyc); err != nil {
-		return err
-	}
-
-	// Check if KYC record already exists for the user
-	existing, err := s.repo.GetByUserID(ctx, kyc.UserID)
+// CreateKYC creates a new KYC verification request
+func (s *KYCService) CreateKYC(ctx context.Context, userID uuid.UUID, data *models.KYCVerification) (*models.KYCVerification, error) {
+	// Get user's document
+	doc, err := s.docRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("failed to check existing KYC record: %w", err)
+		return nil, fmt.Errorf("failed to get user document: %w", err)
 	}
-	if existing != nil {
-		return fmt.Errorf("KYC record already exists for user %s", kyc.UserID)
+	if doc == nil {
+		return nil, fmt.Errorf("no document found for user %s", userID)
 	}
 
-	// AI-powered checks for fraud and sanctions
-	fraudScore, err := s.checkFraud(kyc)
+	// Prepare fraud detection features
+	features := ai.FraudFeatures{
+		TransactionAmount:    data.TransactionAmount,
+		TransactionTime:      time.Now(),
+		TransactionFrequency: 1, // This should be calculated from user's history
+		UserAge:              calculateAge(data.DateOfBirth),
+		AccountAge:           0,   // This should be calculated from user's account creation date
+		PreviousFraudReports: 0,   // This should be fetched from user's history
+		DocumentQuality:      0.8, // This should be calculated from document verification
+		DocumentAge:          calculateDocumentAge(doc.IssueDate),
+		DocumentType:         string(doc.Type), // Convert DocumentType to string
+		CountryRiskScore:     0.5,              // This should be fetched from a risk database
+		IPRiskScore:          0.5,              // This should be calculated from IP analysis
+		LoginAttempts:        1,                // This should be fetched from auth service
+		FailedLogins:         0,                // This should be fetched from auth service
+		LastLoginTime:        time.Now(),       // This should be fetched from auth service
+		PEPStatus:            false,            // This should be fetched from PEP database
+		SanctionStatus:       false,            // This should be fetched from sanctions database
+		WatchlistStatus:      false,            // This should be fetched from watchlist database
+	}
+
+	// Get fraud prediction
+	prediction, err := s.fraudModel.Predict(features)
 	if err != nil {
-		return fmt.Errorf("failed to check fraud: %w", err)
+		return nil, fmt.Errorf("failed to get fraud prediction: %w", err)
 	}
 
-	sanctionsMatch, err := s.checkSanctions(kyc)
-	if err != nil {
-		return fmt.Errorf("failed to check sanctions: %w", err)
+	// Update KYC data with fraud detection results
+	data.RiskLevel = string(prediction.RiskLevel)
+	data.RiskScore = int(prediction.RiskScore)
+	data.Notes = prediction.Explanation
+
+	// Set initial status based on risk level
+	switch prediction.RiskLevel {
+	case ai.FraudRiskLow:
+		data.Status = "PENDING"
+	case ai.FraudRiskMedium:
+		data.Status = "IN_REVIEW"
+	case ai.FraudRiskHigh:
+		data.Status = "FLAGGED"
 	}
 
-	// Determine initial status based on AI checks
-	if fraudScore > 0.7 || sanctionsMatch {
-		kyc.Status = "reviewing"
-	} else {
-		kyc.Status = "pending"
+	// Create KYC record
+	if err := s.kycRepo.Create(ctx, data); err != nil {
+		return nil, fmt.Errorf("failed to create KYC record: %w", err)
 	}
 
-	return s.repo.Create(ctx, kyc)
+	return data, nil
 }
 
-// GetKYC retrieves a KYC record by user ID
-func (s *KYCService) GetKYC(ctx context.Context, userID string) (*models.KYC, error) {
-	return s.repo.GetByUserID(ctx, userID)
+// GetKYC retrieves a KYC verification by user ID
+func (s *KYCService) GetKYC(ctx context.Context, userID uuid.UUID) (*models.KYCVerification, error) {
+	return s.kycRepo.GetByUserID(ctx, userID)
 }
 
-// UpdateKYC updates an existing KYC record
-func (s *KYCService) UpdateKYC(ctx context.Context, kyc *models.KYC) error {
-	// Validate required fields
-	if err := s.validateKYC(kyc); err != nil {
-		return err
-	}
-
-	// Check if KYC record exists
-	existing, err := s.repo.GetByUserID(ctx, kyc.UserID)
+// UpdateKYC updates an existing KYC verification
+func (s *KYCService) UpdateKYC(ctx context.Context, userID uuid.UUID, data *models.KYCVerification) error {
+	// Get existing KYC record
+	existing, err := s.kycRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("failed to check existing KYC record: %w", err)
-	}
-	if existing == nil {
-		return fmt.Errorf("KYC record not found for user %s", kyc.UserID)
+		return fmt.Errorf("failed to get existing KYC record: %w", err)
 	}
 
-	return s.repo.Update(ctx, kyc)
+	// Update fields
+	existing.FirstName = data.FirstName
+	existing.LastName = data.LastName
+	existing.DateOfBirth = data.DateOfBirth
+	existing.Address = data.Address
+	existing.City = data.City
+	existing.Country = data.Country
+	existing.PostalCode = data.PostalCode
+	existing.PhoneNumber = data.PhoneNumber
+	existing.Email = data.Email
+
+	// Update KYC record
+	if err := s.kycRepo.Update(ctx, existing); err != nil {
+		return fmt.Errorf("failed to update KYC record: %w", err)
+	}
+
+	return nil
 }
 
-// UpdateKYCStatus updates the status of a KYC record
-func (s *KYCService) UpdateKYCStatus(ctx context.Context, userID, status, rejectionReason string, reviewerID string) error {
-	// Validate status
-	if !isValidStatus(status) {
-		return fmt.Errorf("invalid status: %s", status)
-	}
-
-	// Check if KYC record exists
-	existing, err := s.repo.GetByUserID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to check existing KYC record: %w", err)
-	}
-	if existing == nil {
-		return fmt.Errorf("KYC record not found for user %s", userID)
-	}
-
-	// Update status and reviewer information
-	updates := map[string]interface{}{
-		"status":       status,
-		"reviewed_by":  reviewerID,
-		"reviewed_at":  time.Now(),
-	}
-	if rejectionReason != "" {
-		updates["rejection_reason"] = rejectionReason
-	}
-
-	return s.repo.UpdateStatus(ctx, userID, status, rejectionReason)
+// UpdateKYCStatus updates the status of a KYC verification
+func (s *KYCService) UpdateKYCStatus(ctx context.Context, userID uuid.UUID, status string, notes string) error {
+	return s.kycRepo.UpdateStatus(ctx, userID, status, notes)
 }
 
-// ListKYC retrieves a list of KYC records with optional filtering
-func (s *KYCService) ListKYC(ctx context.Context, status string, page, pageSize int) ([]models.KYC, int64, error) {
-	// Validate pagination parameters
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = 10
-	}
-
-	// Validate status if provided
-	if status != "" && !isValidStatus(status) {
-		return nil, 0, fmt.Errorf("invalid status: %s", status)
-	}
-
-	return s.repo.List(ctx, status, page, pageSize)
+// ListKYC retrieves KYC verifications with pagination and filtering
+func (s *KYCService) ListKYC(ctx context.Context, status string, page, pageSize int) ([]models.KYCVerification, int64, error) {
+	return s.kycRepo.List(ctx, status, page, pageSize)
 }
 
-// DeleteKYC deletes a KYC record
-func (s *KYCService) DeleteKYC(ctx context.Context, userID string) error {
-	// Check if KYC record exists
-	existing, err := s.repo.GetByUserID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to check existing KYC record: %w", err)
-	}
-	if existing == nil {
-		return fmt.Errorf("KYC record not found for user %s", userID)
-	}
-
-	return s.repo.Delete(ctx, userID)
+// DeleteKYC soft deletes a KYC verification
+func (s *KYCService) DeleteKYC(ctx context.Context, userID uuid.UUID) error {
+	return s.kycRepo.Delete(ctx, userID)
 }
 
 // validateKYC validates the required fields of a KYC record
@@ -212,4 +209,20 @@ func isValidStatus(status string) bool {
 		"reviewing": true,
 	}
 	return validStatuses[status]
+}
+
+// Helper functions
+func calculateAge(dateOfBirth time.Time) int {
+	now := time.Now()
+	years := now.Year() - dateOfBirth.Year()
+	if now.Month() < dateOfBirth.Month() || (now.Month() == dateOfBirth.Month() && now.Day() < dateOfBirth.Day()) {
+		years--
+	}
+	return years
+}
+
+func calculateDocumentAge(issueDate time.Time) int {
+	now := time.Now()
+	days := int(now.Sub(issueDate).Hours() / 24)
+	return days
 }

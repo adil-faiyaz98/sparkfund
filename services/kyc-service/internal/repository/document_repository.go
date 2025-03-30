@@ -1,12 +1,15 @@
 package repository
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"sparkfund/services/kyc-service/internal/model"
+	"sparkfund/services/kyc-service/internal/models"
 )
 
 // DocumentRepository handles database operations for documents
@@ -20,8 +23,8 @@ func NewDocumentRepository(db *gorm.DB) *DocumentRepository {
 }
 
 // Create creates a new document
-func (r *DocumentRepository) Create(document *model.Document) error {
-	return r.db.Create(document).Error
+func (r *DocumentRepository) Create(ctx context.Context, doc *models.Document) error {
+	return r.db.WithContext(ctx).Create(doc).Error
 }
 
 // GetByID retrieves a document by ID
@@ -34,24 +37,27 @@ func (r *DocumentRepository) GetByID(id uuid.UUID) (*model.Document, error) {
 	return &document, nil
 }
 
-// GetByUserID retrieves all documents for a user
-func (r *DocumentRepository) GetByUserID(userID uuid.UUID) ([]*model.Document, error) {
-	var documents []*model.Document
-	err := r.db.Where("user_id = ?", userID).Find(&documents).Error
+// GetByUserID retrieves a document by user ID
+func (r *DocumentRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*models.Document, error) {
+	var doc models.Document
+	err := r.db.WithContext(ctx).First(&doc, "user_id = ?", userID).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
-	return documents, nil
+	return &doc, nil
 }
 
-// Update updates a document
-func (r *DocumentRepository) Update(document *model.Document) error {
-	return r.db.Save(document).Error
+// Update updates an existing document
+func (r *DocumentRepository) Update(ctx context.Context, doc *models.Document) error {
+	return r.db.WithContext(ctx).Save(doc).Error
 }
 
 // Delete soft deletes a document
-func (r *DocumentRepository) Delete(id uuid.UUID) error {
-	return r.db.Delete(&model.Document{}, "id = ?", id).Error
+func (r *DocumentRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&models.Document{}, "id = ?", id).Error
 }
 
 // GetHistory retrieves the history of a document

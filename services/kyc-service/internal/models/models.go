@@ -7,30 +7,51 @@ import (
 	"gorm.io/gorm"
 )
 
+// DocumentType represents the type of KYC document
+type DocumentType string
+
+const (
+	DocumentTypePassport        DocumentType = "passport"
+	DocumentTypeDriversLicense  DocumentType = "drivers_license"
+	DocumentTypeNationalID      DocumentType = "national_id"
+	DocumentTypeResidencePermit DocumentType = "residence_permit"
+)
+
+// DocumentStatus represents the status of a document
+type DocumentStatus string
+
+const (
+	DocumentStatusPending  DocumentStatus = "pending"
+	DocumentStatusVerified DocumentStatus = "verified"
+	DocumentStatusRejected DocumentStatus = "rejected"
+	DocumentStatusExpired  DocumentStatus = "expired"
+)
+
 type KYCVerification struct {
-	ID             uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	UserID         uuid.UUID      `gorm:"type:uuid;not null" json:"user_id"`
-	Status         string         `gorm:"not null" json:"status"`        // PENDING, APPROVED, REJECTED
-	DocumentType   string         `gorm:"not null" json:"document_type"` // PASSPORT, DRIVERS_LICENSE, NATIONAL_ID
-	DocumentNumber string         `gorm:"not null" json:"document_number"`
-	DocumentURL    string         `gorm:"not null" json:"document_url"`
-	FirstName      string         `gorm:"not null" json:"first_name"`
-	LastName       string         `gorm:"not null" json:"last_name"`
-	DateOfBirth    time.Time      `gorm:"not null" json:"date_of_birth"`
-	Address        string         `gorm:"not null" json:"address"`
-	City           string         `gorm:"not null" json:"city"`
-	Country        string         `gorm:"not null" json:"country"`
-	PostalCode     string         `gorm:"not null" json:"postal_code"`
-	PhoneNumber    string         `gorm:"not null" json:"phone_number"`
-	Email          string         `gorm:"not null" json:"email"`
-	RiskLevel      string         `gorm:"not null" json:"risk_level"` // LOW, MEDIUM, HIGH
-	RiskScore      int            `gorm:"not null" json:"risk_score"`
-	Notes          string         `gorm:"type:text" json:"notes"`
-	ReviewedBy     uuid.UUID      `gorm:"type:uuid" json:"reviewed_by"`
-	ReviewedAt     time.Time      `json:"reviewed_at"`
-	CreatedAt      time.Time      `gorm:"not null" json:"created_at"`
-	UpdatedAt      time.Time      `gorm:"not null" json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+	ID                uuid.UUID      `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	UserID            uuid.UUID      `gorm:"type:uuid;not null" json:"user_id"`
+	Status            string         `gorm:"not null" json:"status"`        // PENDING, APPROVED, REJECTED
+	DocumentType      string         `gorm:"not null" json:"document_type"` // PASSPORT, DRIVERS_LICENSE, NATIONAL_ID
+	DocumentNumber    string         `gorm:"not null" json:"document_number"`
+	DocumentURL       string         `gorm:"not null" json:"document_url"`
+	FirstName         string         `gorm:"not null" json:"first_name"`
+	LastName          string         `gorm:"not null" json:"last_name"`
+	DateOfBirth       time.Time      `gorm:"not null" json:"date_of_birth"`
+	Address           string         `gorm:"not null" json:"address"`
+	City              string         `gorm:"not null" json:"city"`
+	Country           string         `gorm:"not null" json:"country"`
+	PostalCode        string         `gorm:"not null" json:"postal_code"`
+	PhoneNumber       string         `gorm:"not null" json:"phone_number"`
+	Email             string         `gorm:"not null" json:"email"`
+	TransactionAmount float64        `gorm:"not null" json:"transaction_amount"`
+	RiskLevel         string         `gorm:"not null" json:"risk_level"` // LOW, MEDIUM, HIGH
+	RiskScore         int            `gorm:"not null" json:"risk_score"`
+	Notes             string         `gorm:"type:text" json:"notes"`
+	ReviewedBy        uuid.UUID      `gorm:"type:uuid" json:"reviewed_by"`
+	ReviewedAt        time.Time      `json:"reviewed_at"`
+	CreatedAt         time.Time      `gorm:"not null" json:"created_at"`
+	UpdatedAt         time.Time      `gorm:"not null" json:"updated_at"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type KYCReview struct {

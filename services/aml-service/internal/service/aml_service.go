@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
+	"aml-service/internal/ai"
 	"aml-service/internal/model"
 	"aml-service/internal/repository"
 
@@ -22,12 +24,14 @@ type AMLService interface {
 }
 
 type amlService struct {
-	txRepo repository.TransactionRepository
+	txRepo     repository.TransactionRepository
+	fraudModel ai.FraudModel
 }
 
-func NewAMLService(txRepo repository.TransactionRepository) AMLService {
+func NewAMLService(txRepo repository.TransactionRepository, fraudModel ai.FraudModel) AMLService {
 	return &amlService{
-		txRepo: txRepo,
+		txRepo:     txRepo,
+		fraudModel: fraudModel,
 	}
 }
 
@@ -56,7 +60,7 @@ func (s *amlService) ProcessTransaction(ctx context.Context, userID uuid.UUID, r
 		tx.Metadata = string(metadataJSON)
 	}
 
-	// Assess risk
+	// Assess risk using AI model
 	assessment, err := s.AssessRisk(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -73,52 +77,80 @@ func (s *amlService) ProcessTransaction(ctx context.Context, userID uuid.UUID, r
 }
 
 func (s *amlService) AssessRisk(ctx context.Context, tx *model.Transaction) (*model.RiskAssessment, error) {
-	assessment := &model.RiskAssessment{
-		TransactionID: tx.ID,
-		RiskScore:     0,
-		Factors:       make([]string, 0),
-	}
-
-	// Check transaction amount
-	if tx.Amount > 10000 {
-		assessment.RiskScore += 0.3
-		assessment.Factors = append(assessment.Factors, "High transaction amount")
-	}
-
-	// Check for multiple transactions in short time
+	// Get recent transactions for the user
 	recentTxs, err := s.txRepo.GetRecentTransactions(ctx, tx.UserID, 24*time.Hour)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(recentTxs) > 5 {
-		assessment.RiskScore += 0.2
-		assessment.Factors = append(assessment.Factors, "Multiple transactions in short time")
+	// Calculate transaction statistics
+	var totalAmount float64
+	for _, t := range recentTxs {
+		totalAmount += t.Amount
+	}
+	avgAmount := totalAmount / float64(len(recentTxs)+1)
+	amountDeviation := calculateAmountDeviation(tx.Amount, avgAmount)
+
+	// Prepare features for fraud detection
+	features := ai.FraudFeatures{
+		Amount:           tx.Amount,
+		Currency:         tx.Currency,
+		TransactionTime:  time.Now(),
+		TransactionType:  string(tx.Type),
+		TransactionCount: len(recentTxs) + 1,
+		AverageAmount:    avgAmount,
+		AmountDeviation:  amountDeviation,
+		UserAge:          25,    // TODO: Get from user service
+		AccountAge:       30,    // TODO: Get from user service
+		PreviousFraud:    false, // TODO: Get from fraud history
+		RiskProfile:      0.5,   // TODO: Get from risk profile
+		CountryRisk:      0.3,   // TODO: Get from country risk service
+		IPRisk:           0.2,   // TODO: Get from IP risk service
+		LocationMismatch: false, // TODO: Check against user's usual location
+		LoginAttempts:    1,     // TODO: Get from auth service
+		FailedLogins:     0,     // TODO: Get from auth service
+		DeviceChanges:    0,     // TODO: Get from device tracking service
+		PEPStatus:        false, // TODO: Get from PEP service
+		SanctionList:     false, // TODO: Get from sanctions service
+		WatchList:        false, // TODO: Get from watchlist service
 	}
 
-	// Check for unusual locations
-	if tx.Location != "US" {
-		assessment.RiskScore += 0.1
-		assessment.Factors = append(assessment.Factors, "Non-US location")
+	// Get fraud prediction
+	prediction, err := s.fraudModel.Predict(features)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fraud prediction: %w", err)
 	}
 
-	// Determine risk level
-	switch {
-	case assessment.RiskScore >= 0.6:
-		assessment.RiskLevel = model.RiskLevelCritical
-		assessment.Recommendation = "Manual review required"
-	case assessment.RiskScore >= 0.4:
-		assessment.RiskLevel = model.RiskLevelHigh
-		assessment.Recommendation = "Enhanced due diligence required"
-	case assessment.RiskScore >= 0.2:
-		assessment.RiskLevel = model.RiskLevelMedium
-		assessment.Recommendation = "Standard review"
+	// Convert AI risk level to model risk level
+	var riskLevel model.RiskLevel
+	switch prediction.RiskLevel {
+	case ai.FraudRiskLow:
+		riskLevel = model.RiskLevelLow
+	case ai.FraudRiskMedium:
+		riskLevel = model.RiskLevelMedium
+	case ai.FraudRiskHigh:
+		riskLevel = model.RiskLevelHigh
 	default:
-		assessment.RiskLevel = model.RiskLevelLow
-		assessment.Recommendation = "No special review required"
+		riskLevel = model.RiskLevelLow
+	}
+
+	// Create risk assessment
+	assessment := &model.RiskAssessment{
+		TransactionID:  tx.ID,
+		RiskScore:      float64(prediction.RiskScore),
+		RiskLevel:      riskLevel,
+		Factors:        prediction.RiskFactors,
+		Recommendation: prediction.Explanation,
 	}
 
 	return assessment, nil
+}
+
+func calculateAmountDeviation(amount, avgAmount float64) float64 {
+	if avgAmount == 0 {
+		return 0
+	}
+	return (amount - avgAmount) / avgAmount
 }
 
 func (s *amlService) FlagTransaction(ctx context.Context, txID uuid.UUID, reason string, flaggedBy string) error {
