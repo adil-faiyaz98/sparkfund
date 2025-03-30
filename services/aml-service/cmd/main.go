@@ -1,42 +1,84 @@
 package main
 
 import (
-	"log"
+	"errors"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/sparkfund/aml-service/internal/database"
 	"github.com/sparkfund/aml-service/internal/handler"
 	"github.com/sparkfund/aml-service/internal/middleware"
 	"github.com/sparkfund/aml-service/internal/repository"
 	"github.com/sparkfund/aml-service/internal/service"
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found")
+const (
+	// DefaultDatabaseURL is a default connection string for local development. This is insecure and should not be used in production.
+	DefaultDatabaseURL = "host=localhost user=postgres password=postgres dbname=sparkfund port=5432 sslmode=disable"
+)
+type Config struct {
+	Port        string
+	DatabaseURL string
+}
+
+func loadConfig() Config {
+	config := Config{
+		Port:        os.Getenv("PORT"),
+		DatabaseURL: os.Getenv("DATABASE_URL"),
 	}
 
-	// Initialize database
-	db, err := initDB()
+	if config.Port == "" {
+		config.Port = "8080"
+	}
+	if config.DatabaseURL == "" {
+		config.DatabaseURL = DefaultDatabaseURL
+	}
+
+	return config
+}
+
+func initLogger() (*zap.Logger, error) {
+	logger, err := zap.NewProduction()
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		return nil, fmt.Errorf("failed to initialize logger: %w", err)
 	}
+	return logger, nil
+}
 
-	// Run migrations
+func main() {
+	config := loadConfig()
+
+	logger, err := initLogger()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
+	sugar := logger.Sugar()
+
+	sugar.Info("Starting aml-service")
+	sugar.Infof("Loaded config: %+v", config)
+	
+	// Initialize database
+	db, err := initDB(config.DatabaseURL)
+	if err != nil{
+		sugar.Fatalf("Failed to initialize database: %v", err)
+	}
+	sugar.Info("Database initialized successfully")
+
+	// Run migration
 	if err := database.RunMigrations(db); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		sugar.Fatalf("Failed to run migrations: %v", err)
 	}
 
 	// Create indexes
 	if err := database.CreateIndexes(db); err != nil {
 		log.Fatalf("Failed to create indexes: %v", err)
-	}
+	}	
 
 	// Initialize dependencies
 	txRepo := repository.NewTransactionRepository(db)
@@ -55,27 +97,31 @@ func main() {
 	amlHandler.RegisterRoutes(router)
 
 	// Start server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	if err := router.Run(":" + config.Port); err != nil {
+		sugar.Fatalf("Failed to start server: %v", err)
 	}
 }
 
-func initDB() (*gorm.DB, error) {
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		dsn = "host=localhost user=postgres password=postgres dbname=sparkfund port=5432 sslmode=disable"
+func initDB(databaseURL string) (db *gorm.DB, err error) {
+	maxRetries := 3
+	retryDelay := 2 * time.Second
+	for i := 0; i < maxRetries; i++ {
+		db, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
+		if err == nil {
+			break // Connection successful
+		}
+
+		if errors.Is(err, fmt.Errorf("failed to connect to `host=localhost`")) {
+			return nil, fmt.Errorf("failed to connect to database: %w", err)
+		}
+
+		fmt.Printf("Failed to connect to database, retrying in %v... (attempt %d/%d)\n", retryDelay, i+1, maxRetries)
+		time.Sleep(retryDelay)
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return nil, err
-	}
-
+		return nil, fmt.Errorf("failed to connect to database after %d attempts: %w", maxRetries, err)
+	}	
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, err

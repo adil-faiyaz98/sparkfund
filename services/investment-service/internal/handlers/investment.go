@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"net/http"
+	"os/exec"
+	"encoding/json"
+	"regexp"
 	"time"
 
 	"github.com/sparkfund/services/investment-service/internal/database"
@@ -15,6 +18,38 @@ import (
 // @Summary      Create a new investment
 // @Description  Create a new investment
 // @Tags         investments
+
+type InvestmentHandler struct {
+}
+
+func NewInvestmentHandler() *InvestmentHandler {
+	return &InvestmentHandler{}
+}
+
+func (h *InvestmentHandler) RegisterRoutes(r *gin.Engine) {
+	investments := r.Group("/investments")
+	{
+		investments.POST("", CreateInvestment)
+		investments.GET("/:id", GetInvestment)
+		investments.GET("", ListInvestments)
+		investments.PUT("/:id", UpdateInvestment)
+		investments.DELETE("/:id", DeleteInvestment)
+	}
+
+	transactions := r.Group("/transactions")
+	{
+		transactions.POST("", CreateTransaction)
+	}
+
+	portfolios := r.Group("/portfolios")
+	{
+		portfolios.POST("", CreatePortfolio)
+		portfolios.GET("/:id", GetPortfolio)
+		portfolios.PUT("/:id", UpdatePortfolio)
+		portfolios.DELETE("/:id", DeletePortfolio)
+	}
+	r.POST("/stock-recommendation", h.GetStockRecommendation)
+}
 // @Accept       json
 // @Produce      json
 // @Param        investment  body      models.Investment  true  "Investment data"
@@ -284,6 +319,69 @@ func DeleteInvestment(c *gin.Context) {
 
 	c.JSON(200, models.SuccessResponse{Message: "Successfully deleted"})
 }
+
+func (h *InvestmentHandler) GetStockRecommendation(c *gin.Context) {
+	// Execute the Python script
+	cmd := exec.Command("python", "scripts/stock_picking_model.py")
+
+	// Capture the standard output
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "Failed to execute python script"})
+		return
+	}
+
+	// Parse the output using regular expressions
+	re := regexp.MustCompile(`\('(\d{4}-\d{2}-\d{2})',\s*([\d.-]+)\)`)
+	matches := re.FindAllStringSubmatch(string(output), -1)
+
+	// Define a struct for the recommendation
+	type Recommendation struct {
+		Date       string  `json:"date"`
+		Prediction float64 `json:"prediction"`
+	}
+
+	// Create a slice to store the recommendations
+	var recommendations []Recommendation
+
+	// Iterate through the matches and create the recommendation objects
+	for _, match := range matches {
+		if len(match) == 3 {
+			date := match[1]
+			prediction, err := strconv.ParseFloat(match[2], 64)
+			if err != nil {
+				// Handle error parsing prediction
+				continue
+			}
+
+			recommendations = append(recommendations, Recommendation{
+				Date:       date,
+				Prediction: prediction,
+			})
+		}
+	}
+
+	//Return and empty array if not predictions found
+	if len(matches) == 0 {
+		
+		c.JSON(http.StatusOK, []Recommendation{})
+		return
+
+	}
+	// Marshal the recommendations to JSON
+	response, err := json.Marshal(recommendations)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "Failed to marshal recommendations to JSON"})
+		return
+	}
+
+	// Return the structured JSON response
+	c.Data(http.StatusOK, "application/json", response)
+}
+
+
+
+
 
 // CreateTransaction godoc
 // @Summary      Create a new transaction
