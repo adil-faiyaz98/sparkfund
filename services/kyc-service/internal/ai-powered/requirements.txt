@@ -1,0 +1,1 @@
+pandas numpy scikit-learn transformers torch huggingface_hub

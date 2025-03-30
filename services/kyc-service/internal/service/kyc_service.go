@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"math/rand"
 
 	"kyc-service/internal/models"
 	"kyc-service/internal/repository"
@@ -19,6 +20,21 @@ func NewKYCService() *KYCService {
 	return &KYCService{
 		repo: repository.NewKYCRepository(),
 	}
+}
+
+// Placeholder function for fraud detection
+func (s *KYCService) checkFraud(kyc *models.KYC) (float64, error) {
+	// TODO: Replace with actual AI model integration
+	// This is a placeholder that returns a random fraud score
+	return rand.Float64(), nil
+}
+
+// Placeholder function for sanctions list screening
+func (s *KYCService) checkSanctions(kyc *models.KYC) (bool, error) {
+	// TODO: Replace with actual sanctions list screening API integration
+	// This is a placeholder that always returns false (no match)
+	return false, nil
+
 }
 
 // CreateKYC creates a new KYC record
@@ -37,8 +53,23 @@ func (s *KYCService) CreateKYC(ctx context.Context, kyc *models.KYC) error {
 		return fmt.Errorf("KYC record already exists for user %s", kyc.UserID)
 	}
 
-	// Set initial status
-	kyc.Status = "pending"
+	// AI-powered checks for fraud and sanctions
+	fraudScore, err := s.checkFraud(kyc)
+	if err != nil {
+		return fmt.Errorf("failed to check fraud: %w", err)
+	}
+
+	sanctionsMatch, err := s.checkSanctions(kyc)
+	if err != nil {
+		return fmt.Errorf("failed to check sanctions: %w", err)
+	}
+
+	// Determine initial status based on AI checks
+	if fraudScore > 0.7 || sanctionsMatch {
+		kyc.Status = "reviewing"
+	} else {
+		kyc.Status = "pending"
+	}
 
 	return s.repo.Create(ctx, kyc)
 }
