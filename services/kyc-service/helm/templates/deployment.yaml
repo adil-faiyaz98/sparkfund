@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kyc-service.fullname" . }}
+  labels:
+    {{- include "kyc-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "kyc-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kyc-service.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.service.port }}"
+        prometheus.io/path: "{{ .Values.config.metrics.path }}"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: DB_HOST
+              value: {{ .Values.config.database.host }}
+            - name: DB_PORT
+              value: {{ .Values.config.database.port | quote }}
+            - name: DB_NAME
+              value: {{ .Values.config.database.name }}
+            - name: DB_USER
+              value: {{ .Values.config.database.user }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kyc-service.fullname" . }}-secrets
+                  key: db-password
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kyc-service.fullname" . }}-secrets
+                  key: jwt-secret
+            - name: LOG_LEVEL
+              value: {{ .Values.config.log.level }}
+            - name: LOG_FORMAT
+              value: {{ .Values.config.log.format }}
+            - name: METRICS_ENABLED
+              value: {{ .Values.config.metrics.enabled | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.config.metrics.port | quote }}
+            - name: METRICS_PATH
+              value: {{ .Values.config.metrics.path }}
+            - name: ELASTICSEARCH_URL
+              value: {{ .Values.config.elasticsearch.url }}
+            - name: ELASTICSEARCH_INDEX_PREFIX
+              value: {{ .Values.config.elasticsearch.indexPrefix }}
+            - name: JAEGER_ENDPOINT
+              value: {{ .Values.config.jaeger.endpoint }}
+            - name: JAEGER_SAMPLING_RATE
+              value: {{ .Values.config.jaeger.samplingRate | quote }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "kyc-service.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }} 

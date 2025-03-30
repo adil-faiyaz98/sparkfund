@@ -1,0 +1,100 @@
+version: 1.0.0
+
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs:
+    - vendor/
+    - third_party/
+    - testdata/
+    - examples/
+    - Godeps/
+    - builtin/
+
+linters:
+  enable:
+    - gofmt
+    - golint
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - misspell
+    - gosec
+    - bodyclose
+    - gocritic
+    - gocyclo
+    - goimports
+    - gomnd
+    - goprintffuncname
+    - gosqlite3
+    - gostructcheck
+    - gosystemd
+    - gotype
+    - gotypex
+    - interfacer
+    - lll
+    - nakedret
+    - scopelint
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - varcheck
+    - whitespace
+    - wsl
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  gomnd:
+    settings:
+      mnd:
+        checks: argument,case,condition,operation,return,assign
+  gosec:
+    excludes:
+      - G404 # Use of weak random number generator
+  govet:
+    check-shadowing: true
+  lll:
+    line-length: 120
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+    - text: "should have comment"
+      linters:
+        - golint
+    - text: "error strings should not be capitalized"
+      linters:
+        - golint
+    - text: "should have comment or be unexported"
+      linters:
+        - golint
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+path:
+  patterns:
+    - "*.go"
+    - "*.s"
+    - "*.h"
+
+  exclude-patterns:
+    - "vendor/*"
+    - "third_party/*"
+    - "testdata/*"
+    - "examples/*"
+    - "Godeps/*"
+    - "builtin/*" 

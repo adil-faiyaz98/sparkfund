@@ -3,10 +3,11 @@ package handler
 import (
 	"net/http"
 
+	"aml-service/internal/model"
+	"aml-service/internal/service"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/sparkfund/aml-service/internal/model"
-	"github.com/sparkfund/aml-service/internal/service"
 )
 
 type AMLHandler struct {

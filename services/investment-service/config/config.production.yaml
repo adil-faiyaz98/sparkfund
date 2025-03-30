@@ -1,0 +1,31 @@
+server:
+  port: "8081"
+  read_timeout: 5s
+  write_timeout: 10s
+  idle_timeout: 120s
+
+database:
+  host: "${DB_HOST:postgres}"
+  port: "${DB_PORT:5432}"
+  user: "${DB_USER:postgres}"
+  password: "${DB_PASSWORD}"
+  name: "${DB_NAME:investment_service}"
+  sslmode: "require"
+
+jwt:
+  secret: "${JWT_SECRET}"
+  expiry: 24h
+  refresh: 168h  # 7 days
+
+rate_limit:
+  requests: 100
+  window: 1m
+  burst: 20
+
+metrics:
+  enabled: true
+  path: "/metrics"
+
+log:
+  level: "info"
+  format: "json"

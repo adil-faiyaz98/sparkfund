@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sparkfund/services/investment-service/internal/database"
-	"github.com/sparkfund/services/investment-service/internal/models"
+	"investment-service/internal/database"
+	"investment-service/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

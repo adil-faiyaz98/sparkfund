@@ -1,105 +1,184 @@
 package service
 
 import (
-	"errors"
+	"context"
+	"fmt"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/sparkfund/kyc-service/internal/model"
-	"github.com/sparkfund/kyc-service/internal/repository"
+	"kyc-service/internal/models"
+	"kyc-service/internal/repository"
 )
 
+// KYCService handles business logic for KYC operations
 type KYCService struct {
 	repo *repository.KYCRepository
 }
 
-func NewKYCService(repo *repository.KYCRepository) *KYCService {
-	return &KYCService{repo: repo}
+// NewKYCService creates a new KYC service instance
+func NewKYCService() *KYCService {
+	return &KYCService{
+		repo: repository.NewKYCRepository(),
+	}
 }
 
-func (s *KYCService) SubmitKYC(userID uuid.UUID, req *model.KYCRequest) (*model.KYCResponse, error) {
-	// Check if user already has a KYC submission
-	existingKYC, err := s.repo.GetByUserID(userID)
-	if err == nil && existingKYC != nil {
-		return nil, errors.New("user already has a KYC submission")
-	}
-
-	kyc := &model.KYC{
-		UserID:         userID,
-		FirstName:      req.FirstName,
-		LastName:       req.LastName,
-		DateOfBirth:    req.DateOfBirth,
-		Address:        req.Address,
-		City:           req.City,
-		Country:        req.Country,
-		PostalCode:     req.PostalCode,
-		DocumentType:   req.DocumentType,
-		DocumentNumber: req.DocumentNumber,
-		DocumentFront:  req.DocumentFront,
-		DocumentBack:   req.DocumentBack,
-		SelfieImage:    req.SelfieImage,
-		Status:         model.KYCStatusPending,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-	}
-
-	if err := s.repo.Create(kyc); err != nil {
-		return nil, err
-	}
-
-	return &model.KYCResponse{
-		ID:         kyc.ID,
-		UserID:     kyc.UserID,
-		Status:     kyc.Status,
-		VerifiedAt: kyc.VerifiedAt,
-		CreatedAt:  kyc.CreatedAt,
-		UpdatedAt:  kyc.UpdatedAt,
-	}, nil
-}
-
-func (s *KYCService) GetKYCStatus(id uuid.UUID) (*model.KYCResponse, error) {
-	kyc, err := s.repo.GetByID(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return &model.KYCResponse{
-		ID:              kyc.ID,
-		UserID:          kyc.UserID,
-		Status:          kyc.Status,
-		RejectionReason: kyc.RejectionReason,
-		VerifiedAt:      kyc.VerifiedAt,
-		CreatedAt:       kyc.CreatedAt,
-		UpdatedAt:       kyc.UpdatedAt,
-	}, nil
-}
-
-func (s *KYCService) VerifyKYC(id uuid.UUID, verifiedBy uuid.UUID) error {
-	kyc, err := s.repo.GetByID(id)
-	if err != nil {
+// CreateKYC creates a new KYC record
+func (s *KYCService) CreateKYC(ctx context.Context, kyc *models.KYC) error {
+	// Validate required fields
+	if err := s.validateKYC(kyc); err != nil {
 		return err
 	}
 
-	if kyc.Status != model.KYCStatusPending {
-		return errors.New("KYC is not in pending status")
+	// Check if KYC record already exists for the user
+	existing, err := s.repo.GetByUserID(ctx, kyc.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing KYC record: %w", err)
+	}
+	if existing != nil {
+		return fmt.Errorf("KYC record already exists for user %s", kyc.UserID)
 	}
 
-	return s.repo.Verify(id, verifiedBy)
+	// Set initial status
+	kyc.Status = "pending"
+
+	return s.repo.Create(ctx, kyc)
 }
 
-func (s *KYCService) RejectKYC(id uuid.UUID, reason string) error {
-	kyc, err := s.repo.GetByID(id)
-	if err != nil {
+// GetKYC retrieves a KYC record by user ID
+func (s *KYCService) GetKYC(ctx context.Context, userID string) (*models.KYC, error) {
+	return s.repo.GetByUserID(ctx, userID)
+}
+
+// UpdateKYC updates an existing KYC record
+func (s *KYCService) UpdateKYC(ctx context.Context, kyc *models.KYC) error {
+	// Validate required fields
+	if err := s.validateKYC(kyc); err != nil {
 		return err
 	}
 
-	if kyc.Status != model.KYCStatusPending {
-		return errors.New("KYC is not in pending status")
+	// Check if KYC record exists
+	existing, err := s.repo.GetByUserID(ctx, kyc.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing KYC record: %w", err)
+	}
+	if existing == nil {
+		return fmt.Errorf("KYC record not found for user %s", kyc.UserID)
 	}
 
-	return s.repo.UpdateStatus(id, model.KYCStatusRejected, reason)
+	return s.repo.Update(ctx, kyc)
 }
 
-func (s *KYCService) ListPendingKYC() ([]model.KYC, error) {
-	return s.repo.ListPending()
+// UpdateKYCStatus updates the status of a KYC record
+func (s *KYCService) UpdateKYCStatus(ctx context.Context, userID, status, rejectionReason string, reviewerID string) error {
+	// Validate status
+	if !isValidStatus(status) {
+		return fmt.Errorf("invalid status: %s", status)
+	}
+
+	// Check if KYC record exists
+	existing, err := s.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing KYC record: %w", err)
+	}
+	if existing == nil {
+		return fmt.Errorf("KYC record not found for user %s", userID)
+	}
+
+	// Update status and reviewer information
+	updates := map[string]interface{}{
+		"status":       status,
+		"reviewed_by":  reviewerID,
+		"reviewed_at":  time.Now(),
+	}
+	if rejectionReason != "" {
+		updates["rejection_reason"] = rejectionReason
+	}
+
+	return s.repo.UpdateStatus(ctx, userID, status, rejectionReason)
+}
+
+// ListKYC retrieves a list of KYC records with optional filtering
+func (s *KYCService) ListKYC(ctx context.Context, status string, page, pageSize int) ([]models.KYC, int64, error) {
+	// Validate pagination parameters
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	// Validate status if provided
+	if status != "" && !isValidStatus(status) {
+		return nil, 0, fmt.Errorf("invalid status: %s", status)
+	}
+
+	return s.repo.List(ctx, status, page, pageSize)
+}
+
+// DeleteKYC deletes a KYC record
+func (s *KYCService) DeleteKYC(ctx context.Context, userID string) error {
+	// Check if KYC record exists
+	existing, err := s.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing KYC record: %w", err)
+	}
+	if existing == nil {
+		return fmt.Errorf("KYC record not found for user %s", userID)
+	}
+
+	return s.repo.Delete(ctx, userID)
+}
+
+// validateKYC validates the required fields of a KYC record
+func (s *KYCService) validateKYC(kyc *models.KYC) error {
+	if kyc.UserID == "" {
+		return fmt.Errorf("user ID is required")
+	}
+	if kyc.DocumentType == "" {
+		return fmt.Errorf("document type is required")
+	}
+	if kyc.DocumentNumber == "" {
+		return fmt.Errorf("document number is required")
+	}
+	if kyc.DocumentURL == "" {
+		return fmt.Errorf("document URL is required")
+	}
+	if kyc.FirstName == "" {
+		return fmt.Errorf("first name is required")
+	}
+	if kyc.LastName == "" {
+		return fmt.Errorf("last name is required")
+	}
+	if kyc.DateOfBirth.IsZero() {
+		return fmt.Errorf("date of birth is required")
+	}
+	if kyc.Address == "" {
+		return fmt.Errorf("address is required")
+	}
+	if kyc.City == "" {
+		return fmt.Errorf("city is required")
+	}
+	if kyc.Country == "" {
+		return fmt.Errorf("country is required")
+	}
+	if kyc.PostalCode == "" {
+		return fmt.Errorf("postal code is required")
+	}
+	if kyc.PhoneNumber == "" {
+		return fmt.Errorf("phone number is required")
+	}
+	if kyc.Email == "" {
+		return fmt.Errorf("email is required")
+	}
+	return nil
+}
+
+// isValidStatus checks if a given status is valid
+func isValidStatus(status string) bool {
+	validStatuses := map[string]bool{
+		"pending":   true,
+		"approved":  true,
+		"rejected":  true,
+		"reviewing": true,
+	}
+	return validStatuses[status]
 }

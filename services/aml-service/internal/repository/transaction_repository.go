@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
+	"aml-service/internal/model"
+
 	"github.com/google/uuid"
-	"github.com/sparkfund/aml-service/internal/model"
 	"gorm.io/gorm"
 )
 
@@ -99,4 +100,4 @@ func (r *transactionRepository) List(filter *model.TransactionFilter) ([]*model.
 
 func (r *transactionRepository) Update(tx *model.Transaction) error {
 	return r.db.Save(tx).Error
-} 
+}
