@@ -1,6 +1,6 @@
 # SparkFund Investment Platform
 
-A microservices-based investment platform built with Go, featuring an API Gateway and Investment Service.
+A microservices-based investment platform built with Go, featuring an API Gateway, Investment Service, KYC Service, and AI Service.
 
 ## Project Structure
 
@@ -8,7 +8,9 @@ A microservices-based investment platform built with Go, featuring an API Gatewa
 .
 ├── services/
 │   ├── api-gateway/        # API Gateway service
-│   └── investment-service/ # Investment Service
+│   ├── investment-service/ # Investment Service
+│   ├── kyc-service/        # KYC verification service
+│   └── ai-service/         # AI service for document verification, facial recognition, etc.
 ├── deploy/
 │   └── k8s/               # Kubernetes deployment configurations
 └── docker-compose.yml     # Local development setup
@@ -25,23 +27,42 @@ A microservices-based investment platform built with Go, featuring an API Gatewa
 ## Local Development
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/adil-faiyaz98/sparkfund.git
 cd sparkfund
 ```
 
 2. Start the local development environment:
+
 ```bash
 docker-compose up --build
 ```
 
 This will start all required services:
+
 - API Gateway (http://localhost:8080)
 - Investment Service (http://localhost:8081)
 - PostgreSQL (localhost:5432)
 - Redis (localhost:6379)
 - Prometheus (http://localhost:9090)
 - Grafana (http://localhost:3000)
+
+3. Alternatively, to run just the KYC and AI services:
+
+```bash
+.\run_services.bat
+```
+
+This will start:
+
+- KYC Service (http://localhost:8081)
+- AI Service (http://localhost:8001)
+
+Swagger documentation is available at:
+
+- KYC Service: http://localhost:8081/swagger-ui/
+- AI Service: http://localhost:8001/docs
 
 ## API Endpoints
 
@@ -63,6 +84,39 @@ This will start all required services:
 ### Transactions
 
 - `POST /api/v1/transactions` - Create a new transaction
+
+### KYC Service
+
+- `GET /health` - Health check endpoint
+- `POST /api/v1/auth/login` - Login endpoint
+- `GET /api/v1/get-api-key` - Get API key for AI service
+- `POST /api/v1/verifications` - Create a verification
+- `GET /api/v1/verifications` - List all verifications
+- `GET /api/v1/ai/models` - Get AI models
+- `POST /api/v1/ai/analyze-document` - Analyze a document
+- `POST /api/v1/ai/match-faces` - Match faces
+- `POST /api/v1/ai/analyze-risk` - Analyze risk
+- `POST /api/v1/ai/detect-anomalies` - Detect anomalies
+- `POST /api/v1/ai/process-document` - Process a document
+
+### AI Service
+
+- `GET /health` - Health check endpoint
+- `GET /api/v1/get-api-key` - Get API key for testing
+- `POST /api/v1/document/analyze` - Analyze a document (file upload)
+- `POST /api/v1/document/analyze-base64` - Analyze a document from base64 encoded image
+- `GET /api/v1/document/types` - Get supported document types
+- `POST /api/v1/face/match` - Match a selfie with a document photo (file upload)
+- `POST /api/v1/face/match-base64` - Match faces from base64 encoded images
+- `GET /api/v1/face/thresholds` - Get face matching thresholds
+- `POST /api/v1/risk/analyze` - Analyze risk based on user data
+- `GET /api/v1/risk/factors` - Get a list of risk factors
+- `GET /api/v1/risk/levels` - Get risk level thresholds
+- `POST /api/v1/anomaly/detect` - Detect anomalies in user behavior
+- `GET /api/v1/anomaly/types` - Get a list of anomaly types
+- `GET /api/v1/models` - List all AI models
+- `GET /api/v1/models/{model_id}` - Get AI model information
+- `GET /api/v1/models/type/{model_type}` - Get latest AI model by type
 
 ## Testing
 

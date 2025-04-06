@@ -1,0 +1,384 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "KYC Service API",
+    "description": "API for KYC verification with AI integration",
+    "version": "1.0.0"
+  },
+  "host": "localhost:8081",
+  "basePath": "/",
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns the health status of the service",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "healthy"
+                },
+                "service": {
+                  "type": "string",
+                  "example": "kyc-service"
+                },
+                "version": {
+                  "type": "string",
+                  "example": "1.0.0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "User login",
+        "description": "Authenticates a user and returns a JWT token",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Login credentials",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "example": "admin@example.com"
+                },
+                "password": {
+                  "type": "string",
+                  "example": "password123"
+                },
+                "device_info": {
+                  "type": "object",
+                  "properties": {
+                    "ip_address": {
+                      "type": "string",
+                      "example": "192.168.1.1"
+                    },
+                    "user_agent": {
+                      "type": "string",
+                      "example": "Mozilla/5.0"
+                    },
+                    "device_type": {
+                      "type": "string",
+                      "example": "Desktop"
+                    },
+                    "os": {
+                      "type": "string",
+                      "example": "Windows"
+                    },
+                    "browser": {
+                      "type": "string",
+                      "example": "Chrome"
+                    },
+                    "location": {
+                      "type": "string",
+                      "example": "New York, USA"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "email",
+                "password",
+                "device_info"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "type": "string",
+                  "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                },
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "email": {
+                      "type": "string",
+                      "example": "admin@example.com"
+                    },
+                    "first_name": {
+                      "type": "string",
+                      "example": "John"
+                    },
+                    "last_name": {
+                      "type": "string",
+                      "example": "Doe"
+                    },
+                    "role": {
+                      "type": "string",
+                      "example": "user"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/v1/verifications": {
+      "post": {
+        "summary": "Create verification",
+        "description": "Creates a new verification record",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Verification details",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "user_id": {
+                  "type": "string",
+                  "example": "123e4567-e89b-12d3-a456-426614174000"
+                },
+                "kyc_id": {
+                  "type": "string",
+                  "example": "123e4567-e89b-12d3-a456-426614174002"
+                },
+                "document_id": {
+                  "type": "string",
+                  "example": "123e4567-e89b-12d3-a456-426614174003"
+                },
+                "method": {
+                  "type": "string",
+                  "example": "AI"
+                },
+                "status": {
+                  "type": "string",
+                  "example": "PENDING"
+                }
+              },
+              "required": [
+                "user_id",
+                "kyc_id",
+                "document_id",
+                "method",
+                "status"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "verification": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174001"
+                    },
+                    "user_id": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "kyc_id": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174002"
+                    },
+                    "document_id": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174003"
+                    },
+                    "method": {
+                      "type": "string",
+                      "example": "AI"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "PENDING"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2023-01-01T00:00:00Z"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2023-01-01T00:00:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          }
+        }
+      },
+      "get": {
+        "summary": "Get verifications",
+        "description": "Returns a list of verifications",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "verification": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174001"
+                    },
+                    "user_id": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "kyc_id": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174002"
+                    },
+                    "document_id": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174003"
+                    },
+                    "method": {
+                      "type": "string",
+                      "example": "AI"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "PENDING"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2023-01-01T00:00:00Z"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2023-01-01T00:00:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/models": {
+      "get": {
+        "summary": "Get AI models",
+        "description": "Returns a list of AI models",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "models": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "example": "123e4567-e89b-12d3-a456-426614174010"
+                      },
+                      "name": {
+                        "type": "string",
+                        "example": "Document Verification Model"
+                      },
+                      "version": {
+                        "type": "string",
+                        "example": "1.0.0"
+                      },
+                      "type": {
+                        "type": "string",
+                        "example": "DOCUMENT"
+                      },
+                      "accuracy": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 0.98
+                      },
+                      "last_trained_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-01-01T00:00:00Z"
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-01-01T00:00:00Z"
+                      },
+                      "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-01-01T00:00:00Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  }
+}
