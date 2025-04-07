@@ -1,12 +1,8 @@
-# SparkFund Platform
+# SparkFund Platform [ POC - AI Integration ]
 
-<p align="center">
-  <img src="https://via.placeholder.com/200x200?text=SparkFund" alt="SparkFund Logo" width="200" height="200">
-</p>
+SparkFund is a **Proof of Concept** for AI-powered investment recommendations, KYC verification, and user management capabilities. Built with a microservices architecture, it provides a foundation for exploring how AI could enhance financial applications.
 
-SparkFund is a comprehensive financial platform with AI-powered investment recommendations, KYC verification, and user management capabilities. Built with a microservices architecture, it provides a scalable and robust foundation for financial applications.
-
-## 📋 Table of Contents
+## Table of Contents
 
 - [Features](#-features)
 - [Architecture](#-architecture)
@@ -21,14 +17,12 @@ SparkFund is a comprehensive financial platform with AI-powered investment recom
 - [Testing](#-testing)
 - [Monitoring and Observability](#-monitoring-and-observability)
 - [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
 
-## ✨ Features
+## Features
 
 - **Microservices Architecture**: Scalable, maintainable, and resilient system design
-- **AI-Powered Investment Recommendations**: Advanced algorithms for personalized investment advice (POC)
-- **KYC Verification**: Secure and compliant customer onboarding with AI-powered document verification (POC)
+- **AI-Powered Investment Recommendations**: Proof-of-concept algorithms for personalized investment advice
+- **KYC Verification**: Simulated customer onboarding with mock AI-powered document verification
 - **User Management**: Comprehensive user authentication and profile management
 - **API Gateway**: Centralized entry point with routing, authentication, and rate limiting
 - **Swagger Documentation**: Interactive API documentation for all services
@@ -42,103 +36,116 @@ SparkFund is a comprehensive financial platform with AI-powered investment recom
 
 SparkFund follows a microservices architecture with the following components:
 
-<p align="center">
-  <img src="https://via.placeholder.com/800x400?text=SparkFund+Architecture" alt="SparkFund Architecture" width="800">
-</p>
-
-1. **API Gateway**: Routes requests to appropriate services, handles authentication, and rate limiting
+1. **API Gateway**: Routes requests to appropriate services, handles authentication, rate limiting, load balancing, request validation, security, A/B testing, canary deployments and more
 2. **KYC Service**: Handles customer verification and onboarding with AI-powered document verification
 3. **Investment Service**: Manages investments and provides AI-powered recommendations
 4. **User Service**: Manages user accounts, authentication, and profiles
 5. **AI Service**: Provides AI capabilities for document verification, facial recognition, and investment analysis
 6. **Supporting Infrastructure**: PostgreSQL, Redis, Prometheus, Grafana, and Jaeger
 
-## 🚀 Services
+## Services
 
-| Service            | Description                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------------ |
-| API Gateway        | Routes requests to appropriate services, handles authentication, rate limiting, and request validation        |
-| KYC Service        | Handles customer verification and onboarding with AI-powered document verification and identity validation    |
-| Investment Service | Manages investments, portfolios, and provides AI-powered recommendations and market analysis                 |
-| User Service       | Manages user accounts, authentication, profiles, and permissions                                             |
-| AI Service         | Provides AI capabilities for document verification, facial recognition, NLP, and investment analysis         |
+| Service            | Description                                                                                                                                                                                                     |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API Gateway        | Routes requests to appropriate services, handles authentication, rate limiting, and request validation                                                                                                          |
+| KYC Service        | Handles customer verification and onboarding with API-based integration to AI services [Uses API forwarding to an external AI service; most endpoints return simulated responses]                               |
+| Investment Service | Manages investments, portfolios, and provides AI-powered recommendations and market analysis [Contains well-defined interfaces for AI models but primarily uses simulated data rather than real trained models] |
+| User Service       | Manages user accounts, authentication, profiles, and permissions                                                                                                                                                |
+| AI Service         | Provides AI capabilities for document verification, facial recognition, NLP, and investment analysis [POC implementation with placeholder code for model integration]                                           |
 
-## 🧠 AI Capabilities
+## AI Capabilities
 
-SparkFund integrates advanced AI capabilities across its services as a **Proof of Concept (POC)**. While the core microservices functionality is fully implemented, the AI features demonstrate how machine learning can enhance financial services.
+SparkFund integrates AI capabilities across its services as a **Proof of Concept (POC)**. The core microservices functionality is implemented, but the AI features are primarily **simulations** demonstrating how machine learning could enhance financial services.
+
+### KYC Service AI (POC Implementation)
+
+- **Document Verification**: Analysis of identity documents for authenticity and data extraction
+
+  - _Integration Pattern_: API forwarding to an external AI service
+  - _Implementation Status_: **API Forwarding with Mock Fallbacks** - Most endpoints call an external AI service, with local mock responses as fallbacks
+  - _Production Readiness_: **Low** - Requires actual AI service with trained models for document verification
+
+- **Facial Recognition**: Face matching between selfie and ID document
+
+  - _Integration Pattern_: External API call to dedicated AI service
+  - _Implementation Status_: **API Integration** - Requests forwarded to external service endpoint `/api/v1/face/match-base64`
+  - _Production Readiness_: **Low** - Dependent on external service with actual face recognition models
+
+- **Risk Analysis**: Assessment of customer risk profile
+
+  - _Integration Pattern_: External API call to dedicated AI service
+  - _Implementation Status_: **API Integration** - Requests forwarded to external service endpoint `/api/v1/risk/analyze`
+  - _Production Readiness_: **Low** - Dependent on external service with actual risk assessment models
+
+- **Anomaly Detection**: Identification of suspicious patterns in verification requests
+  - _Integration Pattern_: External API call to dedicated AI service
+  - _Implementation Status_: **API Integration** - Requests forwarded to external service endpoint `/api/v1/anomaly/detect`
+  - _Production Readiness_: **Low** - Dependent on external service with actual anomaly detection models
 
 ### Investment Service AI (POC Implementation)
 
 - **Recommendation System**: Personalized investment recommendations based on user profile and market conditions
-  - *Models*: Collaborative filtering, content-based filtering, and hybrid recommendation systems
-  - *Implementation*: API endpoints with sample responses that simulate model predictions
-  - *Endpoints*: `/api/v1/ai/recommendations`, `/api/v1/ai/recommendations/personalized/:userId`
+
+  - _Models_: Interfaces defined for collaborative filtering, content-based filtering, and hybrid recommendation systems
+  - _Implementation Status_: **Simulation** - API endpoints return realistic sample responses that mimic model predictions
+  - _Production Readiness_: **Low** - Would require real model training, evaluation, and deployment
 
 - **Natural Language Processing**: Analysis of market news for investment signals
-  - *Models*: BERT-based sentiment analysis, named entity recognition, and topic modeling
-  - *Implementation*: Text processing pipeline with pre-trained models
-  - *Endpoints*: `/api/v1/ai/advanced/news/analyze`
+
+  - _Models_: References to BERT-based sentiment analysis, named entity recognition, and topic modeling
+  - _Implementation Status_: **Placeholder** - Text processing pipeline defined but not connected to actual models
+  - _For use in Actual projects\*\*: - integrate with actual NLP models for more accurate analysis_
 
 - **Time Series Forecasting**: Price prediction and market movement analysis
-  - *Models*: ARIMA, LSTM, and Prophet for time series forecasting
-  - *Implementation*: Forecasting endpoints with sample historical data
-  - *Endpoints*: `/api/v1/ai/advanced/price/forecast`, `/api/v1/ai/advanced/market/predict`
+
+  - _Models_: Interfaces for ARIMA, LSTM, and Prophet models
+  - _Implementation Status_: **Simulation** - Returns sample forecasts based on historical patterns
+  - _For use in Actual projects\*\*: - integrate with actual time series forecasting models for more accurate predictions_
 
 - **Reinforcement Learning**: Portfolio optimization and investment strategy learning
-  - *Models*: Deep Q-Networks (DQN) and Proximal Policy Optimization (PPO)
-  - *Implementation*: Simulated environment for portfolio optimization
-  - *Endpoints*: `/api/v1/ai/advanced/portfolio/optimize`, `/api/v1/ai/advanced/portfolio/action`
+
+  - _Models_: Scaffold code for Deep Q-Networks (DQN) and Proximal Policy Optimization (PPO)
+  - _Implementation Status_: **Conceptual** - Framework defined but lacks actual RL implementation
+  - _For use in Actual projects\*\*: - integrate with actual RL algorithms for more sophisticated investment strategies_
 
 - **Anomaly Detection**: Fraud detection and security monitoring
-  - *Models*: Isolation Forest, One-Class SVM, and Autoencoder-based anomaly detection
-  - *Implementation*: Transaction monitoring system with anomaly scoring
-  - *Endpoints*: `/api/v1/ai/security/analyze`
-
-### KYC Service AI (POC Implementation)
-
-- **Document Verification**: AI-powered verification of identity documents
-  - *Models*: YOLOv5 for object detection, OCR with Tesseract and PaddleOCR
-  - *Implementation*: Document processing pipeline with validation rules
-  - *Endpoints*: `/api/v1/verification/document`
-
-- **Facial Recognition**: Face matching and liveness detection
-  - *Models*: FaceNet for face embeddings, anti-spoofing models for liveness detection
-  - *Implementation*: Face comparison and liveness check endpoints
-  - *Endpoints*: `/api/v1/verification/facial`
-
-- **Risk Analysis**: AI-powered risk assessment for KYC verification
-  - *Models*: Gradient Boosting models (XGBoost, LightGBM) for risk scoring
-  - *Implementation*: Risk assessment pipeline with multiple data sources
-  - *Endpoints*: `/api/v1/verification/risk`
+  - _Models_: References to Isolation Forest, One-Class SVM, and Autoencoder-based anomaly detection
+  - _Implementation Status_: **Simulation** - Provides mock anomaly scores without real detection
+  - _For use in Actual projects\*\*: - integrate with actual anomaly detection models for enhanced security_
 
 ### AI Service (Central AI Capabilities)
 
 - **Document Analysis**: Extract information from documents using computer vision and NLP
-  - *Models*: CRAFT for text detection, BERT for information extraction
-  - *Implementation*: End-to-end document processing pipeline
-  - *Endpoints*: `/api/v1/document/analyze`
+
+  - _Models_: CRAFT for text detection, BERT for information extraction
+  - _Implementation_: End-to-end document processing pipeline
+  - _Endpoints_: `/api/v1/document/analyze`
 
 - **Image Classification**: Classify images for various purposes
-  - *Models*: EfficientNet, ResNet for image classification
-  - *Implementation*: Image processing and classification endpoints
-  - *Endpoints*: `/api/v1/image/classify`
+
+  - _Models_: EfficientNet, ResNet for image classification
+  - _Implementation_: Image processing and classification endpoints
+  - _Endpoints_: `/api/v1/image/classify`
 
 - **Text Analysis**: Sentiment analysis, entity extraction, and text classification
-  - *Models*: DistilBERT for sentiment analysis, SpaCy for NER
-  - *Implementation*: Text processing endpoints with multiple analysis options
-  - *Endpoints*: `/api/v1/text/analyze`
+  - _Models_: DistilBERT for sentiment analysis, SpaCy for NER
+  - _Implementation_: Text processing endpoints with multiple analysis options
+  - _Endpoints_: `/api/v1/text/analyze`
 
 ### POC Implementation Notes
 
 The AI capabilities are implemented as a proof of concept with the following characteristics:
 
 1. **API Endpoints**: All AI endpoints are fully defined and documented in Swagger
-2. **Sample Responses**: Endpoints return realistic sample responses based on the expected model output
-3. **Model Placeholders**: Code structure is in place for integrating actual models
-4. **Demonstration Ready**: The system demonstrates the potential of AI in financial services
-5. **Production Path**: Clear path for replacing POC implementations with production models
+2. **Integration Patterns**:
+   - KYC Service uses API forwarding to an external AI service
+   - Investment Service uses direct simulation within the service
+3. **Sample Responses**: Many endpoints return realistic sample responses based on the expected model output
+4. **Service Configuration**: Comprehensive configuration for AI service integration is defined but points to placeholder services
+5. **Demonstration Ready**: The system demonstrates the potential of AI in financial services
+6. **Production Path**: Would require significant additional work to implement or integrate with real AI models
 
-## 🚦 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -148,7 +155,7 @@ The AI capabilities are implemented as a proof of concept with the following cha
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/sparkfund.git
+git clone https://github.com/adil-faiyaz98/sparkfund.git
 cd sparkfund
 ```
 
@@ -206,7 +213,7 @@ To use this token, add it to your API requests with the Authorization header:
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTUxNjIzOTAyMiwiZXhwIjoxOTE2MjM5MDIyLCJyb2xlcyI6WyJhZG1pbiIsInVzZXIiXX0.Ks0I-dCdjWUxJEwuGP0qlyYJGXXjUYlLCRwPIZXI5Ss
 ```
 
-## 📚 API Documentation
+## API Documentation
 
 All services have comprehensive Swagger documentation. You can access the interactive Swagger UI for each service at the URLs listed above.
 
@@ -251,13 +258,14 @@ All services have comprehensive Swagger documentation. You can access the intera
 - `POST /api/v1/image/classify` - Classify images using computer vision
 - `POST /api/v1/text/analyze` - Analyze text for sentiment and entities
 
-## ☁️ Cloud Deployment
+## Cloud Deployment
 
 SparkFund is designed to be deployed on major cloud providers with a focus on scalability, reliability, and security.
 
 ### Supported Cloud Providers
 
 - **Amazon Web Services (AWS)**
+
   - EKS for Kubernetes orchestration
   - RDS for PostgreSQL databases
   - ElastiCache for Redis
@@ -266,6 +274,7 @@ SparkFund is designed to be deployed on major cloud providers with a focus on sc
   - IAM for access management
 
 - **Microsoft Azure**
+
   - AKS for Kubernetes orchestration
   - Azure Database for PostgreSQL
   - Azure Cache for Redis
@@ -290,7 +299,7 @@ SparkFund supports a multi-cloud deployment strategy with:
 - **Consistent CI/CD**: Unified deployment pipelines across cloud providers
 - **Cross-Cloud Networking**: Secure communication between services in different clouds
 
-## 🏗 Infrastructure as Code
+## Infrastructure as Code
 
 SparkFund uses Terraform for infrastructure provisioning and management.
 
@@ -328,7 +337,7 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-## 🐳 Containerization & Orchestration
+## Containerization & Orchestration
 
 SparkFund uses Docker for containerization and Kubernetes for orchestration.
 
@@ -371,7 +380,7 @@ helm install sparkfund ./sparkfund -f values-dev.yaml
 helm upgrade sparkfund ./sparkfund -f values-dev.yaml
 ```
 
-## 💰 Cost Management
+## Cost Management
 
 SparkFund integrates Kubecost for Kubernetes cost monitoring and optimization.
 
@@ -399,32 +408,15 @@ When deployed, Kubecost is available at:
 http://kubecost.your-domain.com
 ```
 
-## 🧪 Testing
+## Testing
 
 SparkFund includes comprehensive tests for all services:
 
 ### Running Tests
 
-```bash
-# Run all tests
-go test ./tests/...
+- Not going to run tests for now. But, some really important security related tests are in api-gateway. As for the others, I would recommend the builders for in-depth testing.
 
-# Run tests for a specific service
-go test ./services/kyc-service/...
-go test ./services/investment-service/...
-go test ./services/user-service/...
-go test ./services/api-gateway/...
-```
-
-### Test Structure
-
-Tests are organized by service and type:
-
-- **Unit Tests**: Test individual components in isolation
-- **Integration Tests**: Test interactions between components
-- **End-to-End Tests**: Test complete workflows
-
-## 📊 Monitoring and Observability
+## Monitoring and Observability
 
 SparkFund includes comprehensive monitoring and observability:
 
@@ -452,9 +444,11 @@ docker-compose logs
 docker-compose logs [service-name]
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 If you encounter issues:
+
+## ChatGPT for Help. Otherwise:
 
 1. Check if all containers are running: `docker-compose ps`
 2. View logs for a specific service: `docker-compose logs [service-name]`
@@ -470,22 +464,4 @@ If you encounter issues:
 - **Kubernetes Deployment Issues**: Check pod status and events with `kubectl describe pod`
 - **Terraform Errors**: Check the Terraform state and logs for detailed error messages
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ---
-
-<p align="center">
-  Made with ❤️ by the SparkFund Team
-</p>
