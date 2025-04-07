@@ -1,5 +1,9 @@
 # SparkFund Platform [ POC - AI Integration ]
 
+<p align="center">
+  <img src="assets/images/sparkfund-logo.svg" alt="SparkFund Logo" width="200" height="200">
+</p>
+
 SparkFund is a **Proof of Concept** for AI-powered investment recommendations, KYC verification, and user management capabilities. Built with a microservices architecture, it provides a foundation for exploring how AI could enhance financial applications.
 
 ## Table of Contents
@@ -35,6 +39,10 @@ SparkFund is a **Proof of Concept** for AI-powered investment recommendations, K
 ## 🏗️ Architecture
 
 SparkFund follows a microservices architecture with the following components:
+
+<p align="center">
+  <img src="assets/images/2025-04-07 17_56_59.png" alt="SparkFund Architecture" width="800">
+</p>
 
 1. **API Gateway**: Routes requests to appropriate services, handles authentication, rate limiting, load balancing, request validation, security, A/B testing, canary deployments and more
 2. **KYC Service**: Handles customer verification and onboarding with AI-powered document verification
@@ -198,6 +206,10 @@ All services have interactive Swagger UI documentation available:
 - Investment Service: http://localhost:8082/swagger-ui.html
 - User Service: http://localhost:8083/swagger-ui.html
 - AI Service: http://localhost:8001/docs
+
+<p align="center">
+  <img src="assets/images/2025-04-07 17_56_59-Greenshot.png" alt="Swagger UI" width="800">
+</p>
 
 ### Test Token
 
@@ -424,13 +436,25 @@ SparkFund includes comprehensive monitoring and observability:
 
 Prometheus collects metrics from all services. Access the Prometheus UI at http://localhost:9090.
 
+<p align="center">
+  <img src="assets/images/2025-04-07 17_30_25.png" alt="Prometheus Dashboard" width="800">
+</p>
+
 ### Grafana
 
 Grafana provides visualization of metrics with pre-configured dashboards. Access Grafana at http://localhost:3000 (username: admin, password: admin).
 
+<p align="center">
+  <img src="assets/images/2025-04-07 17_56_54.png" alt="Grafana Dashboard" width="800">
+</p>
+
 ### Jaeger
 
 Jaeger provides distributed tracing for request flows. Access the Jaeger UI at http://localhost:16686.
+
+<p align="center">
+  <img src="assets/images/2025-04-07 17_57_34.png" alt="Jaeger UI" width="800">
+</p>
 
 ### Logging
 
