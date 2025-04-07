@@ -1,381 +1,576 @@
 {
   "swagger": "2.0",
   "info": {
+    "description": "API for managing KYC verifications",
     "title": "KYC Service API",
-    "description": "API for KYC verification with AI integration",
-    "version": "1.0.0"
+    "termsOfService": "http://swagger.io/terms/",
+    "contact": {
+      "name": "API Support",
+      "url": "http://www.sparkfund.com/support",
+      "email": "support@sparkfund.com"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    "version": "1.0"
   },
-  "host": "localhost:8081",
-  "basePath": "/",
-  "schemes": [
-    "http"
+  "host": "localhost:8080",
+  "basePath": "/api/v1",
+  "securityDefinitions": {
+    "Bearer": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Enter 'Bearer' followed by a space and your token. Example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'"
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
   ],
   "paths": {
-    "/health": {
-      "get": {
-        "summary": "Health check",
-        "description": "Returns the health status of the service",
-        "produces": [
-          "application/json"
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "status": {
-                  "type": "string",
-                  "example": "healthy"
-                },
-                "service": {
-                  "type": "string",
-                  "example": "kyc-service"
-                },
-                "version": {
-                  "type": "string",
-                  "example": "1.0.0"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/auth/login": {
+    "/auth": {
       "post": {
-        "summary": "User login",
-        "description": "Authenticates a user and returns a JWT token",
-        "consumes": [
-          "application/json"
-        ],
+        "description": "Authenticate and get a JWT token",
         "produces": [
           "application/json"
         ],
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "description": "Login credentials",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "email": {
-                  "type": "string",
-                  "example": "admin@example.com"
-                },
-                "password": {
-                  "type": "string",
-                  "example": "password123"
-                },
-                "device_info": {
-                  "type": "object",
-                  "properties": {
-                    "ip_address": {
-                      "type": "string",
-                      "example": "192.168.1.1"
-                    },
-                    "user_agent": {
-                      "type": "string",
-                      "example": "Mozilla/5.0"
-                    },
-                    "device_type": {
-                      "type": "string",
-                      "example": "Desktop"
-                    },
-                    "os": {
-                      "type": "string",
-                      "example": "Windows"
-                    },
-                    "browser": {
-                      "type": "string",
-                      "example": "Chrome"
-                    },
-                    "location": {
-                      "type": "string",
-                      "example": "New York, USA"
-                    }
-                  }
-                }
-              },
-              "required": [
-                "email",
-                "password",
-                "device_info"
-              ]
-            }
-          }
+        "tags": [
+          "auth"
         ],
+        "summary": "Authenticate user",
+        "security": [],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "Authentication successful",
             "schema": {
-              "type": "object",
-              "properties": {
-                "token": {
-                  "type": "string",
-                  "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                },
-                "user": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "example": "123e4567-e89b-12d3-a456-426614174000"
-                    },
-                    "email": {
-                      "type": "string",
-                      "example": "admin@example.com"
-                    },
-                    "first_name": {
-                      "type": "string",
-                      "example": "John"
-                    },
-                    "last_name": {
-                      "type": "string",
-                      "example": "Doe"
-                    },
-                    "role": {
-                      "type": "string",
-                      "example": "user"
-                    }
-                  }
-                }
-              }
+              "$ref": "#/definitions/AuthResponse"
             }
-          },
-          "400": {
-            "description": "Invalid request body"
           },
           "401": {
-            "description": "Invalid credentials"
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
           }
         }
       }
     },
-    "/api/v1/verifications": {
-      "post": {
-        "summary": "Create verification",
-        "description": "Creates a new verification record",
-        "consumes": [
-          "application/json"
-        ],
+    "/health": {
+      "get": {
+        "description": "Get the health status of the service",
         "produces": [
           "application/json"
         ],
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "description": "Verification details",
-            "required": true,
+        "tags": [
+          "health"
+        ],
+        "summary": "Get service health",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
             "schema": {
               "type": "object",
-              "properties": {
-                "user_id": {
-                  "type": "string",
-                  "example": "123e4567-e89b-12d3-a456-426614174000"
-                },
-                "kyc_id": {
-                  "type": "string",
-                  "example": "123e4567-e89b-12d3-a456-426614174002"
-                },
-                "document_id": {
-                  "type": "string",
-                  "example": "123e4567-e89b-12d3-a456-426614174003"
-                },
-                "method": {
-                  "type": "string",
-                  "example": "AI"
-                },
-                "status": {
-                  "type": "string",
-                  "example": "PENDING"
-                }
-              },
-              "required": [
-                "user_id",
-                "kyc_id",
-                "document_id",
-                "method",
-                "status"
-              ]
+              "additionalProperties": {
+                "type": "interface"
+              }
             }
+          }
+        }
+      }
+    },
+    "/verifications": {
+      "get": {
+        "description": "Get a list of verifications with pagination",
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "verifications"
+        ],
+        "summary": "List verifications",
+        "parameters": [
+          {
+            "type": "integer",
+            "default": 1,
+            "minimum": 1,
+            "description": "Page number",
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "type": "integer",
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "description": "Page size",
+            "name": "page_size",
+            "in": "query"
+          },
+          {
+            "enum": [
+              "PENDING",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "FAILED",
+              "EXPIRED"
+            ],
+            "type": "string",
+            "description": "Filter by status",
+            "name": "status",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "List of verifications",
             "schema": {
-              "type": "object",
-              "properties": {
-                "verification": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "example": "123e4567-e89b-12d3-a456-426614174001"
-                    },
-                    "user_id": {
-                      "type": "string",
-                      "example": "123e4567-e89b-12d3-a456-426614174000"
-                    },
-                    "kyc_id": {
-                      "type": "string",
-                      "example": "123e4567-e89b-12d3-a456-426614174002"
-                    },
-                    "document_id": {
-                      "type": "string",
-                      "example": "123e4567-e89b-12d3-a456-426614174003"
-                    },
-                    "method": {
-                      "type": "string",
-                      "example": "AI"
-                    },
-                    "status": {
-                      "type": "string",
-                      "example": "PENDING"
-                    },
-                    "created_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "example": "2023-01-01T00:00:00Z"
-                    },
-                    "updated_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "example": "2023-01-01T00:00:00Z"
-                    }
-                  }
-                }
-              }
+              "$ref": "#/definitions/VerificationsResponse"
             }
           },
           "400": {
-            "description": "Invalid request body"
-          }
-        }
-      },
-      "get": {
-        "summary": "Get verifications",
-        "description": "Returns a list of verifications",
-        "produces": [
-          "application/json"
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful operation",
+            "description": "Bad request",
             "schema": {
-              "type": "object",
-              "properties": {
-                "verification": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "example": "123e4567-e89b-12d3-a456-426614174001"
-                    },
-                    "user_id": {
-                      "type": "string",
-                      "example": "123e4567-e89b-12d3-a456-426614174000"
-                    },
-                    "kyc_id": {
-                      "type": "string",
-                      "example": "123e4567-e89b-12d3-a456-426614174002"
-                    },
-                    "document_id": {
-                      "type": "string",
-                      "example": "123e4567-e89b-12d3-a456-426614174003"
-                    },
-                    "method": {
-                      "type": "string",
-                      "example": "AI"
-                    },
-                    "status": {
-                      "type": "string",
-                      "example": "PENDING"
-                    },
-                    "created_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "example": "2023-01-01T00:00:00Z"
-                    },
-                    "updated_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "example": "2023-01-01T00:00:00Z"
-                    }
-                  }
-                }
-              }
+              "$ref": "#/definitions/ErrorResponse"
             }
-          }
-        }
-      }
-    },
-    "/api/v1/ai/models": {
-      "get": {
-        "summary": "Get AI models",
-        "description": "Returns a list of AI models",
-        "produces": [
-          "application/json"
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful operation",
+          },
+          "401": {
+            "description": "Unauthorized",
             "schema": {
-              "type": "object",
-              "properties": {
-                "models": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "example": "123e4567-e89b-12d3-a456-426614174010"
-                      },
-                      "name": {
-                        "type": "string",
-                        "example": "Document Verification Model"
-                      },
-                      "version": {
-                        "type": "string",
-                        "example": "1.0.0"
-                      },
-                      "type": {
-                        "type": "string",
-                        "example": "DOCUMENT"
-                      },
-                      "accuracy": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 0.98
-                      },
-                      "last_trained_at": {
-                        "type": "string",
-                        "format": "date-time",
-                        "example": "2023-01-01T00:00:00Z"
-                      },
-                      "created_at": {
-                        "type": "string",
-                        "format": "date-time",
-                        "example": "2023-01-01T00:00:00Z"
-                      },
-                      "updated_at": {
-                        "type": "string",
-                        "format": "date-time",
-                        "example": "2023-01-01T00:00:00Z"
-                      }
-                    }
-                  }
-                }
-              }
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
             }
           },
           "500": {
-            "description": "Internal server error"
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Create a new verification",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "verifications"
+        ],
+        "summary": "Create verification",
+        "parameters": [
+          {
+            "description": "Verification data",
+            "name": "verification",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/VerificationRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created verification",
+            "schema": {
+              "$ref": "#/definitions/VerificationResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/verifications/{id}": {
+      "get": {
+        "description": "Get a verification by its ID",
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "verifications"
+        ],
+        "summary": "Get verification by ID",
+        "parameters": [
+          {
+            "type": "string",
+            "format": "uuid",
+            "description": "Verification ID",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verification details",
+            "schema": {
+              "$ref": "#/definitions/VerificationResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Verification not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Update an existing verification",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "verifications"
+        ],
+        "summary": "Update verification",
+        "parameters": [
+          {
+            "type": "string",
+            "format": "uuid",
+            "description": "Verification ID",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Verification data",
+            "name": "verification",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/VerificationRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated verification",
+            "schema": {
+              "$ref": "#/definitions/VerificationResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Verification not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Delete a verification",
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "verifications"
+        ],
+        "summary": "Delete verification",
+        "parameters": [
+          {
+            "type": "string",
+            "format": "uuid",
+            "description": "Verification ID",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Verification not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "AuthResponse": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string",
+          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        },
+        "expires": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-05-05T15:04:05Z"
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "example": 400
+        },
+        "details": {
+          "type": "string",
+          "example": "Invalid verification ID format"
+        },
+        "message": {
+          "type": "string",
+          "example": "Bad request"
+        }
+      }
+    },
+    "Verification": {
+      "type": "object",
+      "properties": {
+        "completed_at": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-05T15:04:05Z"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-05T15:04:05Z"
+        },
+        "document_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440003"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "kyc_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440002"
+        },
+        "method": {
+          "type": "string",
+          "example": "DOCUMENT"
+        },
+        "notes": {
+          "type": "string",
+          "example": "Verification in progress"
+        },
+        "status": {
+          "type": "string",
+          "example": "PENDING"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-05T15:04:05Z"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001"
+        },
+        "verifier_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440004"
+        }
+      }
+    },
+    "VerificationRequest": {
+      "type": "object",
+      "required": [
+        "user_id",
+        "kyc_id",
+        "method",
+        "status"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440003"
+        },
+        "kyc_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440002"
+        },
+        "method": {
+          "type": "string",
+          "example": "DOCUMENT"
+        },
+        "notes": {
+          "type": "string",
+          "example": "Verification in progress"
+        },
+        "status": {
+          "type": "string",
+          "example": "PENDING"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001"
+        }
+      }
+    },
+    "VerificationResponse": {
+      "type": "object",
+      "properties": {
+        "verification": {
+          "$ref": "#/definitions/Verification"
+        }
+      }
+    },
+    "VerificationsResponse": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "example": 1
+        },
+        "page_size": {
+          "type": "integer",
+          "example": 20
+        },
+        "total": {
+          "type": "integer",
+          "example": 10
+        },
+        "verifications": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Verification"
           }
         }
       }

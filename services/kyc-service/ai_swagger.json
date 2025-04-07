@@ -1,0 +1,965 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "KYC Service AI API",
+    "description": "API for AI-powered KYC verification",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "url": "http://www.sparkfund.com/support",
+      "email": "support@sparkfund.com"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  },
+  "host": "localhost:8081",
+  "basePath": "/api/v1",
+  "schemes": [
+    "http"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "Bearer": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Enter 'Bearer' followed by a space and your token. Example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'"
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
+  ],
+  "paths": {
+    "/ai/analyze-document": {
+      "post": {
+        "summary": "Analyze Document",
+        "description": "Analyzes a document for authenticity and extracts information",
+        "tags": [
+          "AI"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "description": "Document analysis request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AnalyzeDocumentRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document analysis result",
+            "schema": {
+              "$ref": "#/definitions/AnalyzeDocumentResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Document not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/ai/match-faces": {
+      "post": {
+        "summary": "Match Faces",
+        "description": "Compares a selfie with a document photo to verify identity",
+        "tags": [
+          "AI"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "description": "Face matching request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/MatchFacesRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Face matching result",
+            "schema": {
+              "$ref": "#/definitions/MatchFacesResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Document or selfie not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/ai/analyze-risk": {
+      "post": {
+        "summary": "Analyze Risk",
+        "description": "Analyzes risk based on user data and device information",
+        "tags": [
+          "AI"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "description": "Risk analysis request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AnalyzeRiskRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Risk analysis result",
+            "schema": {
+              "$ref": "#/definitions/AnalyzeRiskResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/ai/detect-anomalies": {
+      "post": {
+        "summary": "Detect Anomalies",
+        "description": "Detects anomalies in user behavior based on historical patterns",
+        "tags": [
+          "AI"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "description": "Anomaly detection request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DetectAnomaliesRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Anomaly detection result",
+            "schema": {
+              "$ref": "#/definitions/DetectAnomaliesResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/ai/process-document": {
+      "post": {
+        "summary": "Process Document",
+        "description": "Processes a document through all AI checks",
+        "tags": [
+          "AI"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "description": "Document processing request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ProcessDocumentRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document processing result",
+            "schema": {
+              "$ref": "#/definitions/ProcessDocumentResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Document or verification not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/ai/models": {
+      "get": {
+        "summary": "Get AI Models",
+        "description": "Get a list of AI models",
+        "tags": [
+          "AI"
+        ],
+        "responses": {
+          "200": {
+            "description": "AI models",
+            "schema": {
+              "$ref": "#/definitions/GetAIModelsResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "405": {
+            "description": "Method not allowed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "AnalyzeDocumentRequest": {
+      "type": "object",
+      "required": [
+        "document_id",
+        "verification_id"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440002",
+          "description": "ID of the document to analyze"
+        },
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        }
+      }
+    },
+    "AnalyzeDocumentResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440000",
+          "description": "ID of the document analysis result"
+        },
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        },
+        "document_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440002",
+          "description": "ID of the document"
+        },
+        "document_type": {
+          "type": "string",
+          "example": "PASSPORT",
+          "description": "Type of the document"
+        },
+        "is_authentic": {
+          "type": "boolean",
+          "example": true,
+          "description": "Whether the document is authentic"
+        },
+        "confidence": {
+          "type": "number",
+          "format": "float",
+          "example": 95.5,
+          "description": "Confidence score for the authenticity"
+        },
+        "extracted_data": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "example": {
+            "full_name": "John Smith",
+            "document_number": "X123456789",
+            "date_of_birth": "1990-01-01",
+            "expiry_date": "2030-01-01",
+            "issuing_country": "United States"
+          },
+          "description": "Data extracted from the document"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": [],
+          "description": "Issues found with the document"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-05T15:04:05Z",
+          "description": "When the analysis was created"
+        }
+      }
+    },
+    "MatchFacesRequest": {
+      "type": "object",
+      "required": [
+        "document_id",
+        "selfie_id",
+        "verification_id"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440002",
+          "description": "ID of the document containing the face"
+        },
+        "selfie_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440004",
+          "description": "ID of the selfie"
+        },
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        }
+      }
+    },
+    "MatchFacesResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440003",
+          "description": "ID of the face match result"
+        },
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        },
+        "document_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440002",
+          "description": "ID of the document"
+        },
+        "selfie_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440004",
+          "description": "ID of the selfie"
+        },
+        "is_match": {
+          "type": "boolean",
+          "example": true,
+          "description": "Whether the faces match"
+        },
+        "confidence": {
+          "type": "number",
+          "format": "float",
+          "example": 92.8,
+          "description": "Confidence score for the match"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-05T15:04:05Z",
+          "description": "When the match was created"
+        }
+      }
+    },
+    "DeviceInfo": {
+      "type": "object",
+      "required": [
+        "ip_address",
+        "user_agent"
+      ],
+      "properties": {
+        "ip_address": {
+          "type": "string",
+          "example": "192.168.1.1",
+          "description": "IP address of the device"
+        },
+        "user_agent": {
+          "type": "string",
+          "example": "Mozilla/5.0",
+          "description": "User agent of the device"
+        },
+        "device_type": {
+          "type": "string",
+          "example": "Desktop",
+          "description": "Type of the device"
+        },
+        "os": {
+          "type": "string",
+          "example": "Windows",
+          "description": "Operating system of the device"
+        },
+        "browser": {
+          "type": "string",
+          "example": "Chrome",
+          "description": "Browser of the device"
+        },
+        "mac_address": {
+          "type": "string",
+          "example": "00:00:00:00:00:00",
+          "description": "MAC address of the device"
+        },
+        "location": {
+          "type": "string",
+          "example": "New York, USA",
+          "description": "Location of the device"
+        },
+        "coordinates": {
+          "type": "string",
+          "example": "40.7128,-74.0060",
+          "description": "Coordinates of the device"
+        },
+        "isp": {
+          "type": "string",
+          "example": "Comcast",
+          "description": "ISP of the device"
+        },
+        "country_code": {
+          "type": "string",
+          "example": "US",
+          "description": "Country code of the device"
+        },
+        "captured_time": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-05T15:04:05Z",
+          "description": "When the device info was captured"
+        }
+      }
+    },
+    "AnalyzeRiskRequest": {
+      "type": "object",
+      "required": [
+        "user_id",
+        "verification_id",
+        "device_info"
+      ],
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440006",
+          "description": "ID of the user"
+        },
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        },
+        "device_info": {
+          "$ref": "#/definitions/DeviceInfo"
+        }
+      }
+    },
+    "AnalyzeRiskResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440005",
+          "description": "ID of the risk analysis result"
+        },
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440006",
+          "description": "ID of the user"
+        },
+        "risk_score": {
+          "type": "number",
+          "format": "float",
+          "example": 15.2,
+          "description": "Risk score"
+        },
+        "risk_level": {
+          "type": "string",
+          "example": "LOW",
+          "description": "Risk level"
+        },
+        "risk_factors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": [],
+          "description": "Risk factors"
+        },
+        "device_info": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "example": {
+            "ip_address": "192.168.1.1",
+            "user_agent": "Mozilla/5.0",
+            "device_type": "Desktop",
+            "os": "Windows",
+            "browser": "Chrome",
+            "location": "New York, USA"
+          },
+          "description": "Device information"
+        },
+        "ip_address": {
+          "type": "string",
+          "example": "192.168.1.1",
+          "description": "IP address"
+        },
+        "location": {
+          "type": "string",
+          "example": "New York, USA",
+          "description": "Location"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-05T15:04:05Z",
+          "description": "When the analysis was created"
+        }
+      }
+    },
+    "DetectAnomaliesRequest": {
+      "type": "object",
+      "required": [
+        "user_id",
+        "verification_id",
+        "device_info"
+      ],
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440006",
+          "description": "ID of the user"
+        },
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        },
+        "device_info": {
+          "$ref": "#/definitions/DeviceInfo"
+        }
+      }
+    },
+    "DetectAnomaliesResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440007",
+          "description": "ID of the anomaly detection result"
+        },
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440006",
+          "description": "ID of the user"
+        },
+        "is_anomaly": {
+          "type": "boolean",
+          "example": false,
+          "description": "Whether an anomaly was detected"
+        },
+        "anomaly_score": {
+          "type": "number",
+          "format": "float",
+          "example": 5.3,
+          "description": "Anomaly score"
+        },
+        "anomaly_type": {
+          "type": "string",
+          "example": "",
+          "description": "Type of anomaly"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": [],
+          "description": "Reasons for the anomaly"
+        },
+        "device_info": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "example": {
+            "ip_address": "192.168.1.1",
+            "user_agent": "Mozilla/5.0",
+            "device_type": "Desktop",
+            "os": "Windows",
+            "browser": "Chrome",
+            "location": "New York, USA"
+          },
+          "description": "Device information"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-05T15:04:05Z",
+          "description": "When the detection was created"
+        }
+      }
+    },
+    "ProcessDocumentRequest": {
+      "type": "object",
+      "required": [
+        "document_id",
+        "verification_id",
+        "device_info"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440002",
+          "description": "ID of the document to process"
+        },
+        "selfie_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440004",
+          "description": "ID of the selfie (optional)"
+        },
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        },
+        "device_info": {
+          "$ref": "#/definitions/DeviceInfo"
+        }
+      }
+    },
+    "ProcessDocumentResponse": {
+      "type": "object",
+      "properties": {
+        "verification_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440001",
+          "description": "ID of the verification"
+        },
+        "user_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440006",
+          "description": "ID of the user"
+        },
+        "document_id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440002",
+          "description": "ID of the document"
+        },
+        "status": {
+          "type": "string",
+          "example": "COMPLETED",
+          "description": "Status of the verification"
+        },
+        "notes": {
+          "type": "string",
+          "example": "All verification checks passed",
+          "description": "Notes about the verification"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-05T15:04:05Z",
+          "description": "When the verification was completed"
+        }
+      }
+    },
+    "AIModel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "example": "550e8400-e29b-41d4-a716-446655440008",
+          "description": "ID of the AI model"
+        },
+        "name": {
+          "type": "string",
+          "example": "Document Verification Model",
+          "description": "Name of the AI model"
+        },
+        "version": {
+          "type": "string",
+          "example": "1.0.0",
+          "description": "Version of the AI model"
+        },
+        "type": {
+          "type": "string",
+          "example": "DOCUMENT",
+          "description": "Type of the AI model"
+        },
+        "accuracy": {
+          "type": "number",
+          "format": "float",
+          "example": 0.98,
+          "description": "Accuracy of the AI model"
+        },
+        "last_trained_at": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2025-04-04T15:04:05Z",
+          "description": "When the AI model was last trained"
+        }
+      }
+    },
+    "GetAIModelsResponse": {
+      "type": "object",
+      "properties": {
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AIModel"
+          },
+          "description": "List of AI models"
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32",
+          "example": 400,
+          "description": "HTTP status code"
+        },
+        "message": {
+          "type": "string",
+          "example": "Bad request",
+          "description": "Error message"
+        },
+        "details": {
+          "type": "string",
+          "example": "Invalid document ID",
+          "description": "Error details"
+        }
+      }
+    }
+  }
+}

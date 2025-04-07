@@ -1,6 +1,8 @@
 module github.com/sparkfund/services/user-service
 
-go 1.22
+go 1.23.0
+
+toolchain go1.23.8
 
 require (
 	github.com/google/uuid v1.6.0
