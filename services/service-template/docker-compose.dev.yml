@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  service-template:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: service-template-dev
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - .:/app
+    environment:
+      - APP_ENV=development
+      - APP_DATABASE_HOST=postgres
+      - APP_DATABASE_PORT=5432
+      - APP_DATABASE_USER=postgres
+      - APP_DATABASE_PASSWORD=postgres
+      - APP_DATABASE_NAME=service_template
+      - APP_DATABASE_SSLMODE=disable
+      - APP_JWT_SECRET=dev-secret-key
+      - APP_CACHE_ENABLED=true
+      - APP_CACHE_TYPE=memory
+      - APP_LOG_LEVEL=debug
+      - APP_LOG_FORMAT=console
+    depends_on:
+      - postgres
+    networks:
+      - service-network-dev
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: service-template-postgres-dev
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=service_template
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data-dev:/var/lib/postgresql/data
+    networks:
+      - service-network-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data-dev:
+
+networks:
+  service-network-dev:
+    driver: bridge

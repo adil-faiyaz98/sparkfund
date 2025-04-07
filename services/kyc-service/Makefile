@@ -1,73 +1,163 @@
-.PHONY: build test clean fmt lint docker-build docker-push run mock
-
-# Service name
+# Variables
 SERVICE_NAME := kyc-service
-
-# Docker registry
 REGISTRY := sparkfund
+VERSION := $(shell git describe --tags --always --dirty)
+COMMIT_HASH := $(shell git rev-parse --short HEAD)
+BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 
-# Build the service
+# Go related variables
+GOPATH := $(shell go env GOPATH)
+GOBIN := $(GOPATH)/bin
+GOCMD := go
+GOBUILD := $(GOCMD) build
+GOTEST := $(GOCMD) test
+
+# Build flags
+LDFLAGS := -w -s \
+    -X main.version=$(VERSION) \
+    -X main.commitHash=$(COMMIT_HASH) \
+    -X main.buildTime=$(BUILD_TIME)
+
+.PHONY: all build test clean fmt lint docker-build docker-push run mock help generate docs deps
+
+all: clean deps generate test build
+
 build:
-	go build -o bin/$(SERVICE_NAME) ./cmd/api
+    @echo "Building $(SERVICE_NAME)..."
+    $(GOBUILD) -ldflags "$(LDFLAGS)" -o bin/$(SERVICE_NAME) ./cmd/api
 
-# Run tests
-test:
-	go test -v -race -coverprofile=coverage.out ./...
+# Test targets
+.PHONY: test test-unit test-integration test-e2e
 
-# Clean build artifacts
-clean:
-	rm -rf bin/
-	rm -f coverage.out
+test-unit:
+    @echo "Running unit tests..."
+    go test -v ./tests/unit/...
 
-# Format code
-fmt:
-	go fmt ./...
+test-integration:
+    @echo "Running integration tests..."
+    go test -v ./tests/integration/...
 
-# Run linter
+test-e2e:
+    @echo "Running e2e tests..."
+    go test -v ./tests/e2e/...
+
+test: test-unit test-integration test-e2e
+
 lint:
-	golangci-lint run
+    @echo "Running linter..."
+    golangci-lint run --timeout=5m
 
-# Build Docker image
+generate:
+    @echo "Generating code..."
+    $(GOCMD) generate ./...
+    swag init -g cmd/api/main.go --parseDependency --parseInternal
+
 docker-build:
-	docker build -t $(REGISTRY)/$(SERVICE_NAME):latest .
+    docker build -t $(REGISTRY)/$(SERVICE_NAME):$(VERSION) \
+        --build-arg VERSION=$(VERSION) \
+        --build-arg COMMIT_HASH=$(COMMIT_HASH) \
+        --build-arg BUILD_TIME=$(BUILD_TIME) \
+        -f deployments/docker/Dockerfile .
 
-# Push Docker image
-docker-push:
-	docker push $(REGISTRY)/$(SERVICE_NAME):latest
+dev:
+    @echo "Starting development environment..."
+    @chmod +x scripts/setup-dev.sh
+    @./scripts/setup-dev.sh
 
-# Run the service locally
-run:
-	go run ./cmd/api
+# Development commands
+.PHONY: dev dev-down dev-logs dev-clean
+
+# Start development environment
+dev:
+    @echo "Starting development environment..."
+    @chmod +x scripts/setup-dev.sh
+    @./scripts/setup-dev.sh
+
+# Stop development environment
+dev-down:
+    @echo "Stopping development environment..."
+    docker-compose -f docker-compose.dev.yml down
+
+# Show development logs
+dev-logs:
+    @echo "Showing development logs..."
+    docker-compose -f docker-compose.dev.yml logs -f
+
+# Clean development environment
+dev-clean:
+    @echo "Cleaning development environment..."
+    docker-compose -f docker-compose.dev.yml down -v
+    rm -rf tmp/
+    rm -rf data/documents/*
 
 # Generate mocks
 mock:
-	mockgen -source=internal/repository/kyc.go -destination=internal/repository/mock_kyc.go
+    @echo "Generating mocks..."
+    mockgen -source=internal/repository/kyc.go -destination=internal/repository/mock/kyc_mock.go
+    mockgen -source=internal/service/document_service.go -destination=internal/service/mock/document_service_mock.go
 
-# Install dependencies
+# Generate API documentation
+docs:
+    @echo "Generating API documentation..."
+    swag init -g cmd/api/main.go --parseDependency --parseInternal
+
+# Download dependencies
 deps:
-	go mod download
-	go mod tidy
+    @echo "Downloading dependencies..."
+    $(GOMOD) download
+    $(GOMOD) tidy
 
-# Run security scan
-security:
-	gosec ./...
+# Generate code (protobuf, mocks, etc.)
+generate:
+    @echo "Generating code..."
+    $(GOCMD) generate ./...
 
-# Run all checks
-check: fmt lint test security
+# Docker compose commands
+compose-up:
+    @echo "Starting docker compose..."
+    $(DOCKER_COMPOSE) up -d
 
-# Help
+compose-down:
+    @echo "Stopping docker compose..."
+    $(DOCKER_COMPOSE) down
+
+compose-logs:
+    @echo "Showing logs..."
+    $(DOCKER_COMPOSE) logs -f
+
+# Database commands
+db-migrate:
+    @echo "Running database migrations..."
+    go run cmd/api/main.go migrate
+
+db-rollback:
+    @echo "Rolling back database migrations..."
+    go run cmd/api/main.go migrate rollback
+
+# Security scan
+security-scan:
+    @echo "Running security scan..."
+    gosec -quiet ./...
+    nancy go.sum
+
+# Show help
 help:
-	@echo "Available targets:"
-	@echo "  build        - Build the service"
-	@echo "  test         - Run tests"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  fmt          - Format code"
-	@echo "  lint         - Run linter"
-	@echo "  docker-build - Build Docker image"
-	@echo "  docker-push  - Push Docker image"
-	@echo "  run          - Run the service locally"
-	@echo "  mock         - Generate mocks"
-	@echo "  deps         - Install dependencies"
-	@echo "  security     - Run security scan"
-	@echo "  check        - Run all checks"
-	@echo "  help         - Show this help message" 
+    @echo "Available targets:"
+    @echo "  build         - Build the service"
+    @echo "  test          - Run tests with coverage"
+    @echo "  clean         - Clean build artifacts"
+    @echo "  fmt           - Format code"
+    @echo "  lint          - Run linter"
+    @echo "  docker-build  - Build Docker image"
+    @echo "  docker-push   - Push Docker image"
+    @echo "  run           - Run service locally"
+    @echo "  mock          - Generate mocks"
+    @echo "  docs          - Generate API documentation"
+    @echo "  deps          - Download dependencies"
+    @echo "  generate      - Generate code"
+    @echo "  compose-up    - Start docker compose"
+    @echo "  compose-down  - Stop docker compose"
+    @echo "  compose-logs  - Show docker compose logs"
+    @echo "  db-migrate    - Run database migrations"
+    @echo "  db-rollback   - Rollback database migrations"
+    @echo "  security-scan - Run security scan"

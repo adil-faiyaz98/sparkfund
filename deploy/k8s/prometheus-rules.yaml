@@ -1,0 +1,24 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ml-monitoring-rules
+  namespace: sparkfund
+spec:
+  groups:
+  - name: ml.rules
+    rules:
+    - alert: MLModelLatencyHigh
+      expr: ml_model_inference_duration_seconds > 2
+      for: 5m
+      labels:
+        severity: warning
+    - alert: MLModelAccuracyDrop
+      expr: ml_model_accuracy < 0.95
+      for: 15m
+      labels:
+        severity: critical
+    - alert: MLModelPredictionFailure
+      expr: rate(ml_model_prediction_failures_total[5m]) > 0.01
+      for: 5m
+      labels:
+        severity: critical

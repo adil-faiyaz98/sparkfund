@@ -1,115 +1,137 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/sparkfund/kyc-service/internal/model"
-	"github.com/sparkfund/kyc-service/internal/service"
+	"net/http"
 )
 
 type KYCHandler struct {
-	kycService *service.KYCService
+	*BaseHandler
 }
 
-func NewKYCHandler(kycService *service.KYCService) *KYCHandler {
-	return &KYCHandler{kycService: kycService}
+func NewKYCHandler(base *BaseHandler) *KYCHandler {
+	return &KYCHandler{BaseHandler: base}
 }
 
-func (h *KYCHandler) RegisterRoutes(r *gin.Engine) {
-	v1 := r.Group("/api/v1")
+func (h *KYCHandler) RegisterRoutes(r *gin.RouterGroup) {
+	kyc := r.Group("/kyc")
 	{
-		v1.POST("/kyc", h.SubmitKYC)
-		v1.GET("/kyc/:id", h.GetKYCStatus)
-		v1.POST("/kyc/:id/verify", h.VerifyKYC)
-		v1.POST("/kyc/:id/reject", h.RejectKYC)
-		v1.GET("/kyc/pending", h.ListPendingKYC)
+		// Document operations
+		kyc.POST("/documents", h.UploadDocument)
+		kyc.GET("/documents/:id", h.GetDocument)
+		kyc.DELETE("/documents/:id", h.DeleteDocument)
+		kyc.GET("/documents/pending", h.ListPendingDocuments)
+
+		// Verification operations
+		kyc.POST("/verify", h.VerifyDocument)
+		kyc.GET("/verify/:id", h.GetVerificationStatus)
+		kyc.POST("/validate", h.ValidateIdentity)
+
+		// KYC status operations
+		kyc.GET("/status/:userId", h.GetKYCStatus)
+		kyc.PUT("/status/:userId", h.UpdateKYCStatus)
 	}
 }
 
-func (h *KYCHandler) SubmitKYC(c *gin.Context) {
-	var req model.KYCRequest
+func (h *KYCHandler) VerifyDocument(c *gin.Context) {
+	var req model.DocumentVerificationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// In a real application, you would get the user ID from the authentication context
-	userID := uuid.New() // This is just for demonstration
-
-	resp, err := h.kycService.SubmitKYC(userID, &req)
+	result, err := h.services.KYC.VerifyDocument(c.Request.Context(), &req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *KYCHandler) UploadDocument(c *gin.Context) {
+	kycID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, domain.NewError("INVALID_ID", "Invalid KYC ID", ""))
+		return
+	}
+
+	file, header, err := c.Request.FormFile("document")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, domain.NewError("INVALID_FILE", "Invalid file upload", ""))
+		return
+	}
+	defer file.Close()
+
+	docType := domain.DocumentType(c.PostForm("type"))
+	if !isValidDocumentType(docType) {
+		c.JSON(http.StatusBadRequest, domain.NewError("INVALID_DOC_TYPE", "Invalid document type", ""))
+		return
+	}
+
+	doc, err := h.kycService.UploadDocument(c.Request.Context(), kycID, docType, file, header)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	h.auditLogger.Log(c.Request.Context(), "document_uploaded", doc.ID, map[string]interface{}{
+		"kyc_id": kycID,
+		"type":   docType,
+		"size":   header.Size,
+	})
+
+	c.JSON(http.StatusCreated, doc)
 }
 
 func (h *KYCHandler) GetKYCStatus(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
+	kycID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid KYC ID"})
+		c.JSON(http.StatusBadRequest, domain.NewError("INVALID_ID", "Invalid KYC ID", ""))
 		return
 	}
 
-	resp, err := h.kycService.GetKYCStatus(id)
+	kyc, err := h.kycService.GetKYCStatus(c.Request.Context(), kycID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		h.handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, kyc)
 }
 
-func (h *KYCHandler) VerifyKYC(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid KYC ID"})
-		return
+func (h *KYCHandler) handleError(c *gin.Context, err error) {
+	switch err {
+	case domain.ErrNotFound:
+		c.JSON(http.StatusNotFound, domain.NewError("NOT_FOUND", err.Error(), ""))
+	case domain.ErrInvalidInput:
+		c.JSON(http.StatusBadRequest, domain.NewError("INVALID_INPUT", err.Error(), ""))
+	case domain.ErrUnauthorized:
+		c.JSON(http.StatusUnauthorized, domain.NewError("UNAUTHORIZED", err.Error(), ""))
+	case domain.ErrForbidden:
+		c.JSON(http.StatusForbidden, domain.NewError("FORBIDDEN", err.Error(), ""))
+	default:
+		h.logger.Error("internal error", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, domain.NewError("INTERNAL_ERROR", "An internal error occurred", ""))
 	}
-
-	// In a real application, you would get the verifier ID from the authentication context
-	verifiedBy := uuid.New() // This is just for demonstration
-
-	if err := h.kycService.VerifyKYC(id, verifiedBy); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.Status(http.StatusOK)
 }
 
-func (h *KYCHandler) RejectKYC(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid KYC ID"})
-		return
+func getUserIDFromContext(c *gin.Context) (uuid.UUID, error) {
+	id, exists := c.Get("user_id")
+	if !exists {
+		return uuid.Nil, domain.ErrUnauthorized
 	}
-
-	var req struct {
-		Reason string `json:"reason" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	if err := h.kycService.RejectKYC(id, req.Reason); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.Status(http.StatusOK)
+	return id.(uuid.UUID), nil
 }
 
-func (h *KYCHandler) ListPendingKYC(c *gin.Context) {
-	kycs, err := h.kycService.ListPendingKYC()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+func isValidDocumentType(docType domain.DocumentType) bool {
+	validTypes := map[domain.DocumentType]bool{
+		domain.DocTypePassport:      true,
+		domain.DocTypeDriverLicense: true,
+		domain.DocTypeIDCard:        true,
+		domain.DocTypeUtilityBill:   true,
+		domain.DocTypeBankStatement: true,
 	}
-
-	c.JSON(http.StatusOK, kycs)
+	return validTypes[docType]
 }

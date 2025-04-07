@@ -1,0 +1,135 @@
+{{- define "common.istio-destinationrule" -}}
+{{- if .Values.istio.destinationRule.enabled -}}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  host: {{ include "common.fullname" . }}
+  {{- if .Values.istio.destinationRule.trafficPolicy }}
+  trafficPolicy:
+    {{- if .Values.istio.destinationRule.trafficPolicy.tls }}
+    tls:
+      mode: {{ .Values.istio.destinationRule.trafficPolicy.tls.mode }}
+      {{- if .Values.istio.destinationRule.trafficPolicy.tls.clientCertificate }}
+      clientCertificate: {{ .Values.istio.destinationRule.trafficPolicy.tls.clientCertificate }}
+      {{- end }}
+      {{- if .Values.istio.destinationRule.trafficPolicy.tls.privateKey }}
+      privateKey: {{ .Values.istio.destinationRule.trafficPolicy.tls.privateKey }}
+      {{- end }}
+      {{- if .Values.istio.destinationRule.trafficPolicy.tls.caCertificates }}
+      caCertificates: {{ .Values.istio.destinationRule.trafficPolicy.tls.caCertificates }}
+      {{- end }}
+      {{- if .Values.istio.destinationRule.trafficPolicy.tls.subjectAltNames }}
+      subjectAltNames:
+        {{- range .Values.istio.destinationRule.trafficPolicy.tls.subjectAltNames }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.istio.destinationRule.trafficPolicy.loadBalancer }}
+    loadBalancer:
+      {{- if eq .Values.istio.destinationRule.trafficPolicy.loadBalancer.simple "ROUND_ROBIN" }}
+      simple: ROUND_ROBIN
+      {{- else if eq .Values.istio.destinationRule.trafficPolicy.loadBalancer.simple "LEAST_CONN" }}
+      simple: LEAST_CONN
+      {{- else if eq .Values.istio.destinationRule.trafficPolicy.loadBalancer.simple "RANDOM" }}
+      simple: RANDOM
+      {{- else if eq .Values.istio.destinationRule.trafficPolicy.loadBalancer.simple "PASSTHROUGH" }}
+      simple: PASSTHROUGH
+      {{- end }}
+      {{- if .Values.istio.destinationRule.trafficPolicy.loadBalancer.consistentHash }}
+      consistentHash:
+        {{- if .Values.istio.destinationRule.trafficPolicy.loadBalancer.consistentHash.httpHeaderName }}
+        httpHeaderName: {{ .Values.istio.destinationRule.trafficPolicy.loadBalancer.consistentHash.httpHeaderName }}
+        {{- end }}
+        {{- if .Values.istio.destinationRule.trafficPolicy.loadBalancer.consistentHash.httpCookie }}
+        httpCookie:
+          name: {{ .Values.istio.destinationRule.trafficPolicy.loadBalancer.consistentHash.httpCookie.name }}
+          path: {{ .Values.istio.destinationRule.trafficPolicy.loadBalancer.consistentHash.httpCookie.path }}
+          ttl: {{ .Values.istio.destinationRule.trafficPolicy.loadBalancer.consistentHash.httpCookie.ttl }}
+        {{- end }}
+        {{- if .Values.istio.destinationRule.trafficPolicy.loadBalancer.consistentHash.useSourceIp }}
+        useSourceIp: {{ .Values.istio.destinationRule.trafficPolicy.loadBalancer.consistentHash.useSourceIp }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool }}
+    connectionPool:
+      {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp }}
+      tcp:
+        {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.maxConnections }}
+        maxConnections: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.maxConnections }}
+        {{- end }}
+        {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.connectTimeout }}
+        connectTimeout: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.connectTimeout }}
+        {{- end }}
+        {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.tcpKeepalive }}
+        tcpKeepalive:
+          {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.tcpKeepalive.probes }}
+          probes: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.tcpKeepalive.probes }}
+          {{- end }}
+          {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.tcpKeepalive.time }}
+          time: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.tcpKeepalive.time }}
+          {{- end }}
+          {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.tcpKeepalive.interval }}
+          interval: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.tcp.tcpKeepalive.interval }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.http }}
+      http:
+        {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.http.http1MaxPendingRequests }}
+        http1MaxPendingRequests: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.http.http1MaxPendingRequests }}
+        {{- end }}
+        {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.http.http2MaxRequests }}
+        http2MaxRequests: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.http.http2MaxRequests }}
+        {{- end }}
+        {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.http.maxRequestsPerConnection }}
+        maxRequestsPerConnection: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.http.maxRequestsPerConnection }}
+        {{- end }}
+        {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.http.maxRetries }}
+        maxRetries: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.http.maxRetries }}
+        {{- end }}
+        {{- if .Values.istio.destinationRule.trafficPolicy.connectionPool.http.idleTimeout }}
+        idleTimeout: {{ .Values.istio.destinationRule.trafficPolicy.connectionPool.http.idleTimeout }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.istio.destinationRule.trafficPolicy.outlierDetection }}
+    outlierDetection:
+      {{- if .Values.istio.destinationRule.trafficPolicy.outlierDetection.consecutiveErrors }}
+      consecutiveErrors: {{ .Values.istio.destinationRule.trafficPolicy.outlierDetection.consecutiveErrors }}
+      {{- end }}
+      {{- if .Values.istio.destinationRule.trafficPolicy.outlierDetection.interval }}
+      interval: {{ .Values.istio.destinationRule.trafficPolicy.outlierDetection.interval }}
+      {{- end }}
+      {{- if .Values.istio.destinationRule.trafficPolicy.outlierDetection.baseEjectionTime }}
+      baseEjectionTime: {{ .Values.istio.destinationRule.trafficPolicy.outlierDetection.baseEjectionTime }}
+      {{- end }}
+      {{- if .Values.istio.destinationRule.trafficPolicy.outlierDetection.maxEjectionPercent }}
+      maxEjectionPercent: {{ .Values.istio.destinationRule.trafficPolicy.outlierDetection.maxEjectionPercent }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.istio.destinationRule.subsets }}
+  subsets:
+    {{- range .Values.istio.destinationRule.subsets }}
+    - name: {{ .name }}
+      labels:
+        {{- range $key, $value := .labels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+      {{- if .trafficPolicy }}
+      trafficPolicy:
+        {{- if .trafficPolicy.tls }}
+        tls:
+          mode: {{ .trafficPolicy.tls.mode }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end -}}

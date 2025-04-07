@@ -1,14 +1,19 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: kyc-service-monitor
+  name: kyc-service
+  namespace: sparkfund
   labels:
+    app: kyc-service
     release: prometheus
 spec:
   selector:
     matchLabels:
       app: kyc-service
   endpoints:
-  - port: http
+  - port: metrics
     interval: 15s
-    path: /metrics 
+    path: /metrics
+  namespaceSelector:
+    matchNames:
+    - sparkfund

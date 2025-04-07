@@ -1,0 +1,124 @@
+{{- define "common.prometheus-rules" -}}
+{{- if .Values.metrics.prometheusRules.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+    {{- if .Values.metrics.prometheusRules.additionalLabels }}
+    {{- toYaml .Values.metrics.prometheusRules.additionalLabels | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: {{ include "common.fullname" . }}.rules
+      rules:
+        # Alert for high error rate
+        - alert: {{ .Chart.Name | title }}HighErrorRate
+          expr: sum(rate(http_requests_total{job="{{ .Chart.Name }}", status=~"5.."}[5m])) / sum(rate(http_requests_total{job="{{ .Chart.Name }}"}[5m])) > {{ .Values.metrics.prometheusRules.errorRateThreshold | default 0.05 }}
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ .Chart.Name }}
+          annotations:
+            summary: "High error rate for {{ .Chart.Name }}"
+            description: "{{ .Chart.Name }} has a high error rate (> {{ .Values.metrics.prometheusRules.errorRateThreshold | default 0.05 | mul 100 }}%)"
+        
+        # Alert for high latency
+        - alert: {{ .Chart.Name | title }}HighLatency
+          expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="{{ .Chart.Name }}"}[5m])) by (le)) > {{ .Values.metrics.prometheusRules.latencyThreshold | default 1 }}
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ .Chart.Name }}
+          annotations:
+            summary: "High latency for {{ .Chart.Name }}"
+            description: "{{ .Chart.Name }} has a high 95th percentile latency (> {{ .Values.metrics.prometheusRules.latencyThreshold | default 1 }}s)"
+        
+        # Alert for high CPU usage
+        - alert: {{ .Chart.Name | title }}HighCpuUsage
+          expr: sum(rate(container_cpu_usage_seconds_total{container="{{ .Chart.Name }}"}[5m])) / sum(kube_pod_container_resource_limits_cpu_cores{container="{{ .Chart.Name }}"}) > {{ .Values.metrics.prometheusRules.cpuThreshold | default 0.8 }}
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ .Chart.Name }}
+          annotations:
+            summary: "High CPU usage for {{ .Chart.Name }}"
+            description: "{{ .Chart.Name }} is using more than {{ .Values.metrics.prometheusRules.cpuThreshold | default 0.8 | mul 100 }}% of its CPU limit"
+        
+        # Alert for high memory usage
+        - alert: {{ .Chart.Name | title }}HighMemoryUsage
+          expr: sum(container_memory_working_set_bytes{container="{{ .Chart.Name }}"}) / sum(kube_pod_container_resource_limits_memory_bytes{container="{{ .Chart.Name }}"}) > {{ .Values.metrics.prometheusRules.memoryThreshold | default 0.8 }}
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ .Chart.Name }}
+          annotations:
+            summary: "High memory usage for {{ .Chart.Name }}"
+            description: "{{ .Chart.Name }} is using more than {{ .Values.metrics.prometheusRules.memoryThreshold | default 0.8 | mul 100 }}% of its memory limit"
+        
+        # Alert for pod restarts
+        - alert: {{ .Chart.Name | title }}PodRestarts
+          expr: increase(kube_pod_container_status_restarts_total{container="{{ .Chart.Name }}"}[1h]) > {{ .Values.metrics.prometheusRules.restartThreshold | default 3 }}
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ .Chart.Name }}
+          annotations:
+            summary: "Pod restarts for {{ .Chart.Name }}"
+            description: "{{ .Chart.Name }} has restarted more than {{ .Values.metrics.prometheusRules.restartThreshold | default 3 }} times in the last hour"
+        
+        # Alert for pod not ready
+        - alert: {{ .Chart.Name | title }}PodNotReady
+          expr: sum(kube_pod_status_ready{condition="true", pod=~"{{ .Chart.Name }}.*"}) < {{ .Values.replicaCount }}
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ .Chart.Name }}
+          annotations:
+            summary: "Pod not ready for {{ .Chart.Name }}"
+            description: "{{ .Chart.Name }} has less than {{ .Values.replicaCount }} pods ready"
+        
+        {{- if .Values.database.enabled }}
+        # Alert for database connection errors
+        - alert: {{ .Chart.Name | title }}DatabaseConnectionErrors
+          expr: increase(database_connection_errors_total{service="{{ .Chart.Name }}"}[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ .Chart.Name }}
+          annotations:
+            summary: "Database connection errors for {{ .Chart.Name }}"
+            description: "{{ .Chart.Name }} has database connection errors"
+        {{- end }}
+        
+        {{- if .Values.cache.enabled }}
+        # Alert for cache connection errors
+        - alert: {{ .Chart.Name | title }}CacheConnectionErrors
+          expr: increase(cache_connection_errors_total{service="{{ .Chart.Name }}"}[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ .Chart.Name }}
+          annotations:
+            summary: "Cache connection errors for {{ .Chart.Name }}"
+            description: "{{ .Chart.Name }} has cache connection errors"
+        {{- end }}
+        
+        {{- range .Values.metrics.prometheusRules.customRules }}
+        # Custom rule: {{ .name }}
+        - alert: {{ $.Chart.Name | title }}{{ .name | title }}
+          expr: {{ .expr }}
+          for: {{ .for | default "5m" }}
+          labels:
+            severity: {{ .severity | default "warning" }}
+            service: {{ $.Chart.Name }}
+            {{- if .labels }}
+            {{- toYaml .labels | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "{{ .summary }}"
+            description: "{{ .description }}"
+        {{- end }}
+{{- end }}
+{{- end -}}

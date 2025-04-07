@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+  investment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8083:8080"
+    volumes:
+      - .:/app
+      - investment-data:/data/investments
+    environment:
+      - ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=investment
+      - DB_PASSWORD=investment
+      - DB_NAME=investment
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=investment
+      - POSTGRES_PASSWORD=investment
+      - POSTGRES_DB=investment
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U investment"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:
+  investment-data:

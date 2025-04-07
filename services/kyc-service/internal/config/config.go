@@ -3,205 +3,363 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
-	"gopkg.in/yaml.v2"
+	"github.com/spf13/viper"
 )
 
-// Config represents the application configuration
+// Config holds all configuration for the service
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Database DatabaseConfig `yaml:"database"`
-	Redis    RedisConfig    `yaml:"redis"`
-	Logging  LoggingConfig  `yaml:"logging"`
-	Security SecurityConfig `yaml:"security"`
+	App            AppConfig            `mapstructure:"app"`
+	Server         ServerConfig         `mapstructure:"server"`
+	Database       DatabaseConfig       `mapstructure:"database"`
+	JWT            JWTConfig            `mapstructure:"jwt"`
+	RateLimit      RateLimitConfig      `mapstructure:"rate_limit"`
+	Metrics        MetricsConfig        `mapstructure:"metrics"`
+	Log            LogConfig            `mapstructure:"log"`
+	CircuitBreaker CircuitBreakerConfig `mapstructure:"circuit_breaker"`
+	Security       SecurityConfig       `mapstructure:"security"`
+	Feature        FeatureConfig        `mapstructure:"feature"`
+	FeatureFlags   map[string]bool      `mapstructure:"feature_flags"`
+	Tracing        TracingConfig        `mapstructure:"tracing"`
+	Cache          CacheConfig          `mapstructure:"cache"`
+	TLS            TLSConfig            `mapstructure:"tls"`
+	AI             AIConfig             `mapstructure:"ai"`
+	Storage        StorageConfig        `mapstructure:"storage"`
+	Validation     ValidationConfig     `mapstructure:"validation"`
+	Notifications  NotificationConfig   `mapstructure:"notifications"`
+	Monitoring     MonitoringConfig     `mapstructure:"monitoring"`
+	Events         EventsConfig         `mapstructure:"events"`
 }
 
-// ServerConfig represents server configuration
+// AppConfig holds application configuration
+type AppConfig struct {
+	Name        string `mapstructure:"name"`
+	Version     string `mapstructure:"version"`
+	Environment string `mapstructure:"environment"`
+}
+
+// ServerConfig holds server configuration
 type ServerConfig struct {
-	Port            string `yaml:"port"`
-	ReadTimeout     int    `yaml:"read_timeout"`
-	WriteTimeout    int    `yaml:"write_timeout"`
-	MaxHeaderBytes  int    `yaml:"max_header_bytes"`
-	MaxRequestSize  int64  `yaml:"max_request_size"`
-	AllowedOrigins  []string `yaml:"allowed_origins"`
-	AllowedMethods  []string `yaml:"allowed_methods"`
-	AllowedHeaders  []string `yaml:"allowed_headers"`
+	Host            string        `mapstructure:"host"`
+	Port            int           `mapstructure:"port"`
+	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
+	IdleTimeout     time.Duration `mapstructure:"idle_timeout"`
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+	Timeout         time.Duration `mapstructure:"timeout"`
+	TrustedProxies  []string      `mapstructure:"trusted_proxies"`
 }
 
-// DatabaseConfig represents database configuration
+// DatabaseConfig holds database configuration
 type DatabaseConfig struct {
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	DBName   string `yaml:"dbname"`
-	SSLMode  string `yaml:"sslmode"`
+	Host            string        `mapstructure:"host"`
+	Port            int           `mapstructure:"port"`
+	User            string        `mapstructure:"user"`
+	Password        string        `mapstructure:"password"`
+	Name            string        `mapstructure:"name"`
+	SSLMode         string        `mapstructure:"sslmode"`
+	MaxIdleConns    int           `mapstructure:"max_idle_conns"`
+	MaxOpenConns    int           `mapstructure:"max_open_conns"`
+	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
+	ConnMaxIdleTime time.Duration `mapstructure:"conn_max_idle_time"`
 }
 
-// RedisConfig represents Redis configuration
-type RedisConfig struct {
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	Password string `yaml:"password"`
-	DB       int    `yaml:"db"`
+// JWTConfig holds JWT configuration
+type JWTConfig struct {
+	Secret  string        `mapstructure:"secret"`
+	Expiry  time.Duration `mapstructure:"expiry"`
+	Refresh time.Duration `mapstructure:"refresh"`
+	Issuer  string        `mapstructure:"issuer"`
+	Enabled bool          `mapstructure:"enabled"`
 }
 
-// LoggingConfig represents logging configuration
-type LoggingConfig struct {
-	Level      string `yaml:"level"`
-	Format     string `yaml:"format"`
-	Output     string `yaml:"output"`
-	MaxSize    int    `yaml:"max_size"`
-	MaxBackups int    `yaml:"max_backups"`
-	MaxAge     int    `yaml:"max_age"`
-	Compress   bool   `yaml:"compress"`
+// RateLimitConfig holds rate limiting configuration
+type RateLimitConfig struct {
+	Enabled  bool          `mapstructure:"enabled"`
+	Requests int           `mapstructure:"requests"`
+	Window   time.Duration `mapstructure:"window"`
+	Burst    int           `mapstructure:"burst"`
 }
 
-// SecurityConfig represents security configuration
+// MetricsConfig holds metrics configuration
+type MetricsConfig struct {
+	Enabled      bool          `mapstructure:"enabled"`
+	Path         string        `mapstructure:"path"`
+	Port         int           `mapstructure:"port"`
+	PushInterval time.Duration `mapstructure:"push_interval"`
+}
+
+// LogConfig holds logging configuration
+type LogConfig struct {
+	Level      string `mapstructure:"level"`
+	Format     string `mapstructure:"format"`
+	Output     string `mapstructure:"output"`
+	RequestLog bool   `mapstructure:"request_log"`
+}
+
+// CircuitBreakerConfig holds circuit breaker configuration
+type CircuitBreakerConfig struct {
+	Enabled             bool          `mapstructure:"enabled"`
+	Timeout             time.Duration `mapstructure:"timeout"`
+	MaxConcurrentReqs   uint32        `mapstructure:"max_concurrent_requests"`
+	ErrorThresholdPerc  int           `mapstructure:"error_threshold_percentage"`
+	RequestVolumeThresh uint64        `mapstructure:"request_volume_threshold"`
+	SleepWindow         time.Duration `mapstructure:"sleep_window"`
+}
+
+// SecurityConfig holds security configuration
 type SecurityConfig struct {
-	JWTSecret     string `yaml:"jwt_secret"`
-	JWTExpiry     int    `yaml:"jwt_expiry"`
-	RateLimit     int    `yaml:"rate_limit"`
-	RateWindow    int    `yaml:"rate_window"`
-	BlockDuration int    `yaml:"block_duration"`
+	AllowedOrigins []string      `mapstructure:"allowed_origins"`
+	AllowedMethods []string      `mapstructure:"allowed_methods"`
+	AllowedHeaders []string      `mapstructure:"allowed_headers"`
+	TrustedProxies []string      `mapstructure:"trusted_proxies"`
+	EnableCSRF     bool          `mapstructure:"enable_csrf"`
+	JWTSecret      string        `mapstructure:"jwt_secret"`
+	JWTExpiry      time.Duration `mapstructure:"jwt_expiry"`
+	RateLimit      int           `mapstructure:"rate_limit"`
+	RateWindow     int           `mapstructure:"rate_window"`
+	AuditLogging   struct {
+		Enabled        bool   `mapstructure:"enabled"`
+		LogPredictions bool   `mapstructure:"log_predictions"`
+		LogRetention   string `mapstructure:"log_retention"`
+	} `mapstructure:"audit_logging"`
+	AccessControl struct {
+		RoleBased     bool     `mapstructure:"role_based"`
+		RequiredRoles []string `mapstructure:"required_roles"`
+	} `mapstructure:"access_control"`
 }
 
-// Load loads configuration from a YAML file
-func Load(path string) (*Config, error) {
-	// Read configuration file
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %v", err)
+// FeatureConfig holds feature configuration
+type FeatureConfig struct {
+	EnableSwagger bool `mapstructure:"enable_swagger"`
+	EnableAuth    bool `mapstructure:"enable_auth"`
+	EnableMetrics bool `mapstructure:"enable_metrics"`
+}
+
+// TracingConfig holds tracing configuration
+type TracingConfig struct {
+	Enabled      bool    `mapstructure:"enabled"`
+	ServiceName  string  `mapstructure:"service_name"`
+	SamplingRate float64 `mapstructure:"sampling_rate"`
+}
+
+// CacheConfig holds cache configuration
+type CacheConfig struct {
+	Enabled         bool          `mapstructure:"enabled"`
+	Type            string        `mapstructure:"type"`
+	TTL             time.Duration `mapstructure:"ttl"`
+	CleanupInterval time.Duration `mapstructure:"cleanup_interval"`
+	Redis           struct {
+		Host     string `mapstructure:"host"`
+		Port     int    `mapstructure:"port"`
+		Password string `mapstructure:"password"`
+		DB       int    `mapstructure:"db"`
+		Prefix   string `mapstructure:"prefix"`
+	} `mapstructure:"redis"`
+}
+
+// TLSConfig holds TLS configuration
+type TLSConfig struct {
+	Enabled    bool   `mapstructure:"enabled"`
+	CertFile   string `mapstructure:"cert_file"`
+	KeyFile    string `mapstructure:"key_file"`
+	MinVersion string `mapstructure:"min_version"`
+}
+
+// AIConfig holds AI configuration
+type AIConfig struct {
+	ServiceURL string                 `mapstructure:"service_url"`
+	APIKey     string                 `mapstructure:"api_key"`
+	Timeout    time.Duration          `mapstructure:"timeout"`
+	MaxRetries int                    `mapstructure:"max_retries"`
+	RetryDelay time.Duration          `mapstructure:"retry_delay"`
+	Models     map[string]ModelConfig `mapstructure:"models"`
+}
+
+// ModelConfig holds AI model configuration
+type ModelConfig struct {
+	Path          string  `mapstructure:"path"`
+	Version       string  `mapstructure:"version"`
+	BatchSize     int     `mapstructure:"batch_size"`
+	Threshold     float64 `mapstructure:"threshold"`
+	RealTime      bool    `mapstructure:"real_time"`
+	AuditLogging  bool    `mapstructure:"audit_logging"`
+	Preprocessing struct {
+		ImageSize []int `mapstructure:"image_size"`
+		Normalize bool  `mapstructure:"normalize"`
+	} `mapstructure:"preprocessing"`
+	Security struct {
+		EncryptionEnabled bool   `mapstructure:"encryption_enabled"`
+		KeyRotationPeriod string `mapstructure:"key_rotation_period"`
+	} `mapstructure:"security"`
+}
+
+// StorageConfig holds storage configuration
+type StorageConfig struct {
+	Type  string `mapstructure:"type"`
+	Local struct {
+		Path    string `mapstructure:"path"`
+		TempDir string `mapstructure:"temp_dir"`
+	} `mapstructure:"local"`
+	S3 struct {
+		Bucket string `mapstructure:"bucket"`
+		Region string `mapstructure:"region"`
+	} `mapstructure:"s3"`
+	Retention struct {
+		Documents           string `mapstructure:"documents"`
+		VerificationResults string `mapstructure:"verification_results"`
+	} `mapstructure:"retention"`
+}
+
+// ValidationConfig holds validation configuration
+type ValidationConfig struct {
+	Document struct {
+		MaxSize       int64    `mapstructure:"max_size"`
+		AllowedTypes  []string `mapstructure:"allowed_types"`
+		MinResolution int      `mapstructure:"min_resolution"`
+		MaxPages      int      `mapstructure:"max_pages"`
+	} `mapstructure:"document"`
+	Face struct {
+		MinSize        int      `mapstructure:"min_size"`
+		MaxSize        int      `mapstructure:"max_size"`
+		AllowedFormats []string `mapstructure:"allowed_formats"`
+	} `mapstructure:"face"`
+}
+
+// NotificationConfig holds notification configuration
+type NotificationConfig struct {
+	Enabled   bool `mapstructure:"enabled"`
+	Providers struct {
+		Email struct {
+			SMTPHost    string `mapstructure:"smtp_host"`
+			SMTPPort    int    `mapstructure:"smtp_port"`
+			FromAddress string `mapstructure:"from_address"`
+		} `mapstructure:"email"`
+		SMS struct {
+			Provider   string `mapstructure:"provider"`
+			FromNumber string `mapstructure:"from_number"`
+		} `mapstructure:"sms"`
+	} `mapstructure:"providers"`
+}
+
+// MonitoringConfig holds monitoring configuration
+type MonitoringConfig struct {
+	Tracing struct {
+		Enabled      bool    `mapstructure:"enabled"`
+		SamplingRate float64 `mapstructure:"sampling_rate"`
+	} `mapstructure:"tracing"`
+	Metrics struct {
+		Enabled      bool          `mapstructure:"enabled"`
+		PushInterval time.Duration `mapstructure:"push_interval"`
+	} `mapstructure:"metrics"`
+	Alerts struct {
+		Enabled  bool     `mapstructure:"enabled"`
+		Channels []string `mapstructure:"channels"`
+	} `mapstructure:"alerts"`
+}
+
+// EventsConfig holds events configuration
+type EventsConfig struct {
+	Enabled     bool   `mapstructure:"enabled"`
+	BrokerType  string `mapstructure:"broker_type"`
+	BrokerURL   string `mapstructure:"broker_url"`
+	TopicPrefix string `mapstructure:"topic_prefix"`
+}
+
+// Global configuration instance
+var cfg *Config
+
+// Load loads configuration from files and environment variables
+func Load() (*Config, error) {
+	// Create a new Viper instance
+	v := viper.New()
+
+	// Set default configuration file paths
+	v.SetConfigName("config.base")
+	v.SetConfigType("yaml")
+	v.AddConfigPath("./config")
+	v.AddConfigPath(".")
+
+	// Read base configuration
+	if err := v.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("failed to read base config: %w", err)
 	}
 
-	// Parse configuration
+	// Get environment
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = "development"
+	}
+
+	// Load environment-specific configuration
+	v.SetConfigName(fmt.Sprintf("config.%s", env))
+	if err := v.MergeInConfig(); err != nil {
+		// It's okay if the environment-specific config doesn't exist
+		if !strings.Contains(err.Error(), "Not Found") {
+			return nil, fmt.Errorf("failed to read %s config: %w", env, err)
+		}
+	}
+
+	// Enable environment variable overrides
+	v.SetEnvPrefix("APP")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+
+	// Unmarshal configuration
 	var config Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %v", err)
+	if err := v.Unmarshal(&config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	// Set default values
-	setDefaults(&config)
+	// Set environment in config
+	config.App.Environment = env
 
 	// Validate configuration
 	if err := validateConfig(&config); err != nil {
-		return nil, fmt.Errorf("invalid configuration: %v", err)
+		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
+
+	// Store configuration globally
+	cfg = &config
 
 	return &config, nil
 }
 
-// setDefaults sets default values for configuration
-func setDefaults(config *Config) {
-	// Server defaults
-	if config.Server.Port == "" {
-		config.Server.Port = "8080"
-	}
-	if config.Server.ReadTimeout == 0 {
-		config.Server.ReadTimeout = 10
-	}
-	if config.Server.WriteTimeout == 0 {
-		config.Server.WriteTimeout = 10
-	}
-	if config.Server.MaxHeaderBytes == 0 {
-		config.Server.MaxHeaderBytes = 1 << 20 // 1MB
-	}
-	if config.Server.MaxRequestSize == 0 {
-		config.Server.MaxRequestSize = 10 << 20 // 10MB
-	}
-	if len(config.Server.AllowedOrigins) == 0 {
-		config.Server.AllowedOrigins = []string{"*"}
-	}
-	if len(config.Server.AllowedMethods) == 0 {
-		config.Server.AllowedMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	}
-	if len(config.Server.AllowedHeaders) == 0 {
-		config.Server.AllowedHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
-	}
-
-	// Database defaults
-	if config.Database.Host == "" {
-		config.Database.Host = "localhost"
-	}
-	if config.Database.Port == 0 {
-		config.Database.Port = 5432
-	}
-	if config.Database.SSLMode == "" {
-		config.Database.SSLMode = "disable"
-	}
-
-	// Redis defaults
-	if config.Redis.Host == "" {
-		config.Redis.Host = "localhost"
-	}
-	if config.Redis.Port == 0 {
-		config.Redis.Port = 6379
-	}
-
-	// Logging defaults
-	if config.Logging.Level == "" {
-		config.Logging.Level = "info"
-	}
-	if config.Logging.Format == "" {
-		config.Logging.Format = "json"
-	}
-	if config.Logging.Output == "" {
-		config.Logging.Output = "stdout"
-	}
-	if config.Logging.MaxSize == 0 {
-		config.Logging.MaxSize = 100
-	}
-	if config.Logging.MaxBackups == 0 {
-		config.Logging.MaxBackups = 3
-	}
-	if config.Logging.MaxAge == 0 {
-		config.Logging.MaxAge = 28
-	}
-
-	// Security defaults
-	if config.Security.JWTExpiry == 0 {
-		config.Security.JWTExpiry = 24
-	}
-	if config.Security.RateLimit == 0 {
-		config.Security.RateLimit = 100
-	}
-	if config.Security.RateWindow == 0 {
-		config.Security.RateWindow = 60
-	}
-	if config.Security.BlockDuration == 0 {
-		config.Security.BlockDuration = 300
-	}
+// Get returns the loaded configuration
+func Get() *Config {
+	return cfg
 }
 
 // validateConfig validates the configuration
-func validateConfig(config *Config) error {
-	// Validate server configuration
-	if config.Server.Port == "" {
+func validateConfig(cfg *Config) error {
+	// Validate required fields
+	if cfg.App.Name == "" {
+		return fmt.Errorf("app name is required")
+	}
+
+	if cfg.Server.Port == 0 {
 		return fmt.Errorf("server port is required")
 	}
 
-	// Validate database configuration
-	if config.Database.Host == "" {
-		return fmt.Errorf("database host is required")
-	}
-	if config.Database.User == "" {
-		return fmt.Errorf("database user is required")
-	}
-	if config.Database.Password == "" {
-		return fmt.Errorf("database password is required")
-	}
-	if config.Database.DBName == "" {
-		return fmt.Errorf("database name is required")
-	}
+	// Validate database configuration in production
+	if cfg.App.Environment == "production" {
+		if cfg.Database.Host == "" {
+			return fmt.Errorf("database host is required in production")
+		}
 
-	// Validate Redis configuration
-	if config.Redis.Host == "" {
-		return fmt.Errorf("redis host is required")
-	}
+		if cfg.Database.Password == "" || cfg.Database.Password == "postgres" {
+			return fmt.Errorf("insecure database password in production")
+		}
 
-	// Validate security configuration
-	if config.Security.JWTSecret == "" {
-		return fmt.Errorf("JWT secret is required")
+		if cfg.JWT.Secret == "" || cfg.JWT.Secret == "your-secret-key" {
+			return fmt.Errorf("insecure JWT secret in production")
+		}
+
+		if cfg.Database.SSLMode == "disable" {
+			return fmt.Errorf("database SSL should be enabled in production")
+		}
 	}
 
 	return nil

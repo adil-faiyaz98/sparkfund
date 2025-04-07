@@ -1,0 +1,108 @@
+# Vault Helm chart values for SparkFund
+server:
+  # Vault server configuration
+  ha:
+    enabled: true
+    replicas: 3
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+        listener "tcp" {
+          tls_disable = 1
+          address = "[::]:8200"
+          cluster_address = "[::]:8201"
+        }
+        storage "raft" {
+          path = "/vault/data"
+        }
+        service_registration "kubernetes" {}
+  
+  # Vault server resources
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  
+  # Vault server affinity
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: vault
+              app.kubernetes.io/instance: vault
+              component: server
+          topologyKey: kubernetes.io/hostname
+  
+  # Vault server storage
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: standard
+    accessMode: ReadWriteOnce
+  
+  # Vault server service
+  service:
+    enabled: true
+  
+  # Vault server ingress
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - host: vault.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: vault-tls
+        hosts:
+          - vault.sparkfund.com
+  
+  # Vault server extraEnvironmentVars
+  extraEnvironmentVars:
+    VAULT_CACERT: /vault/userconfig/vault-tls/ca.crt
+  
+  # Vault server extraVolumes
+  extraVolumes:
+    - type: secret
+      name: vault-tls
+      path: /vault/userconfig/vault-tls
+  
+  # Vault server annotations
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8200"
+    prometheus.io/path: "/v1/sys/metrics"
+
+# Vault UI
+ui:
+  enabled: true
+
+# Vault injector
+injector:
+  enabled: true
+  
+  # Vault injector resources
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 256Mi
+      cpu: 250m
+  
+  # Vault injector metrics
+  metrics:
+    enabled: true
+  
+  # Vault injector webhook
+  webhook:
+    objectSelector:
+      matchLabels:
+        vault-injection: enabled

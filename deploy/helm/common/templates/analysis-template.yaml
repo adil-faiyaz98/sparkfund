@@ -1,0 +1,72 @@
+{{- define "common.analysis-template" -}}
+{{- if .Values.rollout.enabled -}}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "common.fullname" . }}-analysis
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: success-rate
+      interval: 30s
+      count: 5
+      successCondition: result[0] >= 0.95
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring:80
+          query: |
+            sum(rate(http_requests_total{service="{{ "{{args.service-name}}" }}", status=~"2.."}[5m])) 
+            / 
+            sum(rate(http_requests_total{service="{{ "{{args.service-name}}" }}"}[5m]))
+    
+    - name: latency-p95
+      interval: 30s
+      count: 5
+      successCondition: result[0] <= {{ .Values.rollout.analysis.latencyThreshold }}
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring:80
+          query: |
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service="{{ "{{args.service-name}}" }}"}[5m])) by (le))
+    
+    - name: error-rate
+      interval: 30s
+      count: 5
+      successCondition: result[0] <= {{ .Values.rollout.analysis.errorRateThreshold }}
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus-server.monitoring:80
+          query: |
+            sum(rate(http_requests_total{service="{{ "{{args.service-name}}" }}", status=~"5.."}[5m])) 
+            / 
+            sum(rate(http_requests_total{service="{{ "{{args.service-name}}" }}"}[5m]))
+    
+    {{- if .Values.rollout.analysis.loadTest.enabled }}
+    - name: load-test
+      provider:
+        job:
+          spec:
+            template:
+              spec:
+                containers:
+                - name: load-tester
+                  image: ghcr.io/adil-faiyaz98/sparkfund/load-tester:latest
+                  command: ["./load-test.sh"]
+                  args:
+                  - "--target={{ "{{args.service-name}}" }}"
+                  - "--users={{ .Values.rollout.analysis.loadTest.users }}"
+                  - "--duration={{ .Values.rollout.analysis.loadTest.duration }}"
+                  - "--rate={{ .Values.rollout.analysis.loadTest.rate }}"
+                restartPolicy: Never
+            backoffLimit: 1
+          successCondition: status.succeeded > 0
+          failureCondition: status.failed > 0
+    {{- end }}
+{{- end }}
+{{- end -}}

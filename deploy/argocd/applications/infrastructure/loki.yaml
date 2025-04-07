@@ -1,0 +1,141 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki-stack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 2.9.10
+    chart: loki-stack
+    helm:
+      values: |
+        loki:
+          config:
+            auth_enabled: false
+            ingester:
+              chunk_idle_period: 3m
+              chunk_block_size: 262144
+              chunk_retain_period: 1m
+              max_transfer_retries: 0
+              lifecycler:
+                ring:
+                  kvstore:
+                    store: inmemory
+                  replication_factor: 1
+                final_sleep: 0s
+              chunk_encoding: snappy
+            limits_config:
+              enforce_metric_name: false
+              reject_old_samples: true
+              reject_old_samples_max_age: 168h
+              max_entries_limit_per_query: 500000
+            schema_config:
+              configs:
+                - from: 2020-10-24
+                  store: boltdb-shipper
+                  object_store: filesystem
+                  schema: v11
+                  index:
+                    prefix: index_
+                    period: 24h
+            server:
+              http_listen_port: 3100
+            storage_config:
+              boltdb_shipper:
+                active_index_directory: /data/loki/boltdb-shipper-active
+                cache_location: /data/loki/boltdb-shipper-cache
+                cache_ttl: 24h
+                shared_store: filesystem
+              filesystem:
+                directory: /data/loki/chunks
+            chunk_store_config:
+              max_look_back_period: 0s
+            table_manager:
+              retention_deletes_enabled: false
+              retention_period: 0s
+            compactor:
+              working_directory: /data/loki/boltdb-shipper-compactor
+              shared_store: filesystem
+          
+          persistence:
+            enabled: true
+            size: 10Gi
+            storageClassName: standard
+          
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        
+        promtail:
+          config:
+            logLevel: info
+            serverPort: 3101
+            clients:
+              - url: http://loki:3100/loki/api/v1/push
+            snippets:
+              pipelineStages:
+                - docker: {}
+                - cri: {}
+                - match:
+                    selector: '{app=~".*"}'
+                    stages:
+                      - json:
+                          expressions:
+                            level: level
+                            message: message
+                            timestamp: timestamp
+                            logger: logger
+                            caller: caller
+                            trace_id: trace_id
+                            span_id: span_id
+                      - labels:
+                          level:
+                          logger:
+                          caller:
+                          trace_id:
+                          span_id:
+          
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          
+          tolerations:
+            - key: node-role.kubernetes.io/master
+              operator: Exists
+              effect: NoSchedule
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+              effect: NoSchedule
+        
+        grafana:
+          enabled: false
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

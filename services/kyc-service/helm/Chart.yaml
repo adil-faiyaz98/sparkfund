@@ -1,6 +1,5 @@
 apiVersion: v2
 name: kyc-service
-description: A Helm chart for the KYC service
-type: application
+description: KYC Service for SparkFund Platform
 version: 0.1.0
-appVersion: "1.0.0" 
+appVersion: "1.0.0"

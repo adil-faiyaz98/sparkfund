@@ -1,0 +1,159 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chaos-mesh
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://charts.chaos-mesh.org
+    targetRevision: 2.6.1
+    chart: chaos-mesh
+    helm:
+      values: |
+        global:
+          namespace: chaos-mesh
+        
+        controllerManager:
+          replicaCount: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          serviceAccount: chaos-controller-manager
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+          podSecurityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            fsGroup: 65532
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+          webhook:
+            enabled: true
+            CRDS:
+              - PodChaos
+              - NetworkChaos
+              - IOChaos
+              - TimeChaos
+              - StressChaos
+              - DNSChaos
+              - HTTPChaos
+              - JVMChaos
+              - KernelChaos
+              - AWSChaos
+              - GCPChaos
+              - BlockChaos
+              - PhysicalMachineChaos
+              - PhysicalMachineChaos
+              - AzureChaos
+              - Schedule
+              - Workflow
+              - WorkflowNode
+        
+        chaosDaemon:
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            privileged: true
+          runtime: containerd
+          socketPath: /run/containerd/containerd.sock
+        
+        dashboard:
+          enabled: true
+          serviceType: ClusterIP
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+          podSecurityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            fsGroup: 65532
+          ingress:
+            enabled: true
+            ingressClassName: nginx
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
+              nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            hosts:
+              - host: chaos-mesh.sparkfund.com
+                paths:
+                  - path: /
+                    pathType: Prefix
+            tls:
+              - secretName: chaos-mesh-tls
+                hosts:
+                  - chaos-mesh.sparkfund.com
+        
+        dnsServer:
+          enabled: true
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        
+        prometheus:
+          enabled: false
+        
+        grafana:
+          enabled: false
+        
+        rbac:
+          create: true
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chaos-mesh
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

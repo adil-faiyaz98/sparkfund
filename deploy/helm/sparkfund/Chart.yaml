@@ -1,0 +1,35 @@
+apiVersion: v2
+name: sparkfund
+description: A Helm chart for the SparkFund platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: api-gateway
+    version: 0.1.0
+    repository: file://../api-gateway
+  - name: kyc-service
+    version: 0.1.0
+    repository: file://../kyc-service
+  - name: investment-service
+    version: 0.1.0
+    repository: file://../investment-service
+  - name: user-service
+    version: 0.1.0
+    repository: file://../user-service
+  - name: ai-service
+    version: 0.1.0
+    repository: file://../ai-service
+  # Infrastructure components
+  - name: prometheus-stack
+    version: 45.27.2
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: prometheus-stack.enabled
+  - name: cert-manager
+    version: v1.13.1
+    repository: https://charts.jetstack.io
+    condition: cert-manager.enabled
+  - name: ingress-nginx
+    version: 4.7.1
+    repository: https://kubernetes.github.io/ingress-nginx
+    condition: ingress-nginx.enabled

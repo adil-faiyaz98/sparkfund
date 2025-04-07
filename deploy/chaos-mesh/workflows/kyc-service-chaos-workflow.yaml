@@ -1,0 +1,125 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: kyc-service-chaos-workflow
+  namespace: chaos-mesh
+spec:
+  entry: entry
+  templates:
+    - name: entry
+      templateType: Serial
+      deadline: 1h
+      children:
+        - pod-failure
+        - network-delay
+        - cpu-stress
+        - memory-stress
+        - io-stress
+    
+    - name: pod-failure
+      templateType: Task
+      task:
+        container:
+          name: pod-failure
+          image: ghcr.io/chaos-mesh/chaos-mesh:v2.6.1
+          command:
+            - /usr/local/bin/chaos-mesh
+          args:
+            - apply
+            - -f
+            - /tmp/pod-failure.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /tmp/pod-failure.yaml
+              subPath: pod-failure.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: kyc-service-chaos-workflow-config
+    
+    - name: network-delay
+      templateType: Task
+      task:
+        container:
+          name: network-delay
+          image: ghcr.io/chaos-mesh/chaos-mesh:v2.6.1
+          command:
+            - /usr/local/bin/chaos-mesh
+          args:
+            - apply
+            - -f
+            - /tmp/network-delay.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /tmp/network-delay.yaml
+              subPath: network-delay.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: kyc-service-chaos-workflow-config
+    
+    - name: cpu-stress
+      templateType: Task
+      task:
+        container:
+          name: cpu-stress
+          image: ghcr.io/chaos-mesh/chaos-mesh:v2.6.1
+          command:
+            - /usr/local/bin/chaos-mesh
+          args:
+            - apply
+            - -f
+            - /tmp/cpu-stress.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /tmp/cpu-stress.yaml
+              subPath: cpu-stress.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: kyc-service-chaos-workflow-config
+    
+    - name: memory-stress
+      templateType: Task
+      task:
+        container:
+          name: memory-stress
+          image: ghcr.io/chaos-mesh/chaos-mesh:v2.6.1
+          command:
+            - /usr/local/bin/chaos-mesh
+          args:
+            - apply
+            - -f
+            - /tmp/memory-stress.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /tmp/memory-stress.yaml
+              subPath: memory-stress.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: kyc-service-chaos-workflow-config
+    
+    - name: io-stress
+      templateType: Task
+      task:
+        container:
+          name: io-stress
+          image: ghcr.io/chaos-mesh/chaos-mesh:v2.6.1
+          command:
+            - /usr/local/bin/chaos-mesh
+          args:
+            - apply
+            - -f
+            - /tmp/io-stress.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /tmp/io-stress.yaml
+              subPath: io-stress.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: kyc-service-chaos-workflow-config
+  
+  scheduler:
+    cron: "0 0 * * 0"  # Every Sunday at midnight

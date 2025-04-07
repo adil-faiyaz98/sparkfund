@@ -1,338 +1,90 @@
 package handler
 
 import (
-	"net/http"
-	"strconv"
-	"time"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-
-	"sparkfund/services/kyc-service/internal/model"
-	"sparkfund/services/kyc-service/internal/service"
+	"github.com/sparkfund/kyc-service/internal/domain"
+	"github.com/sparkfund/kyc-service/internal/service"
+	"go.uber.org/zap"
+	"net/http"
 )
 
 type VerificationHandler struct {
-	verificationService *service.VerificationService
+	verificationService service.VerificationService
+	logger              *zap.Logger
+	auditLogger         service.AuditLogger
 }
 
-func NewVerificationHandler(verificationService *service.VerificationService) *VerificationHandler {
+func NewVerificationHandler(
+	verificationService service.VerificationService,
+	logger *zap.Logger,
+	auditLogger service.AuditLogger,
+) *VerificationHandler {
 	return &VerificationHandler{
 		verificationService: verificationService,
+		logger:              logger,
+		auditLogger:         auditLogger,
 	}
 }
 
-type CreateVerificationRequest struct {
-	DocumentID uuid.UUID                `json:"document_id" binding:"required"`
-	Method     model.VerificationMethod `json:"method" binding:"required"`
+func (h *VerificationHandler) RegisterRoutes(router *gin.Engine) {
+	verification := router.Group("/api/v1/verifications")
+	{
+		verification.POST("/document", h.VerifyDocument)
+		verification.POST("/biometric", h.VerifyBiometric)
+		verification.GET("/:id", h.GetVerificationStatus)
+	}
 }
 
-type UpdateVerificationStatusRequest struct {
-	Status     model.VerificationStatus `json:"status" binding:"required"`
-	VerifierID uuid.UUID                `json:"verifier_id" binding:"required"`
-	Notes      string                   `json:"notes"`
-}
+func (h *VerificationHandler) VerifyDocument(c *gin.Context) {
+	var req struct {
+		DocumentID uuid.UUID `json:"document_id" binding:"required"`
+	}
 
-type UpdateConfidenceScoreRequest struct {
-	Score float64 `json:"score" binding:"required,min=0,max=100"`
-}
-
-type UpdateMetadataRequest struct {
-	Metadata map[string]interface{} `json:"metadata" binding:"required"`
-}
-
-// CreateVerification handles the creation of a new verification
-func (h *VerificationHandler) CreateVerification(c *gin.Context) {
-	var req CreateVerificationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, domain.NewError("INVALID_REQUEST", "Invalid request format", err.Error()))
 		return
 	}
 
-	verification, err := h.verificationService.CreateVerification(req.DocumentID, req.Method)
+	verification, err := h.verificationService.VerifyDocument(c.Request.Context(), req.DocumentID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		h.handleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, verification)
+	h.auditLogger.Log(c.Request.Context(), "document_verification_initiated", verification.ID, map[string]interface{}{
+		"document_id": req.DocumentID,
+	})
+
+	c.JSON(http.StatusAccepted, verification)
 }
 
-// GetVerification retrieves a verification by ID
-func (h *VerificationHandler) GetVerification(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
+func (h *VerificationHandler) GetVerificationStatus(c *gin.Context) {
+	verificationID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification ID"})
+		c.JSON(http.StatusBadRequest, domain.NewError("INVALID_ID", "Invalid verification ID", ""))
 		return
 	}
 
-	verification, err := h.verificationService.GetVerification(id)
+	verification, err := h.verificationService.GetVerificationStatus(c.Request.Context(), verificationID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "verification not found"})
+		h.handleError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, verification)
 }
 
-// GetDocumentVerifications retrieves all verifications for a document
-func (h *VerificationHandler) GetDocumentVerifications(c *gin.Context) {
-	documentID, err := uuid.Parse(c.Param("document_id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid document ID"})
-		return
+func (h *VerificationHandler) handleError(c *gin.Context, err error) {
+	switch err {
+	case domain.ErrNotFound:
+		c.JSON(http.StatusNotFound, domain.NewError("NOT_FOUND", err.Error(), ""))
+	case domain.ErrInvalidInput:
+		c.JSON(http.StatusBadRequest, domain.NewError("INVALID_INPUT", err.Error(), ""))
+	case domain.ErrVerificationFailed:
+		c.JSON(http.StatusUnprocessableEntity, domain.NewError("VERIFICATION_FAILED", err.Error(), ""))
+	default:
+		h.logger.Error("internal error", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, domain.NewError("INTERNAL_ERROR", "An internal error occurred", ""))
 	}
-
-	verifications, err := h.verificationService.GetDocumentVerifications(documentID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, verifications)
-}
-
-// UpdateVerificationStatus updates the status of a verification
-func (h *VerificationHandler) UpdateVerificationStatus(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification ID"})
-		return
-	}
-
-	var req UpdateVerificationStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = h.verificationService.UpdateVerificationStatus(id, req.Status, req.VerifierID, req.Notes)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "verification status updated successfully"})
-}
-
-// DeleteVerification deletes a verification
-func (h *VerificationHandler) DeleteVerification(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification ID"})
-		return
-	}
-
-	err = h.verificationService.DeleteVerification(id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "verification deleted successfully"})
-}
-
-// GetVerificationHistory retrieves the history of a verification
-func (h *VerificationHandler) GetVerificationHistory(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification ID"})
-		return
-	}
-
-	history, err := h.verificationService.GetVerificationHistory(id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, history)
-}
-
-// GetVerificationStats retrieves verification statistics
-func (h *VerificationHandler) GetVerificationStats(c *gin.Context) {
-	stats, err := h.verificationService.GetVerificationStats()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, stats)
-}
-
-// GetVerificationSummary retrieves a summary of a verification
-func (h *VerificationHandler) GetVerificationSummary(c *gin.Context) {
-	documentID, err := uuid.Parse(c.Param("document_id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid document ID"})
-		return
-	}
-
-	summary, err := h.verificationService.GetVerificationSummary(documentID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, summary)
-}
-
-// GetExpiredVerifications retrieves all expired verifications
-func (h *VerificationHandler) GetExpiredVerifications(c *gin.Context) {
-	verifications, err := h.verificationService.GetExpiredVerifications()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, verifications)
-}
-
-// GetPendingVerifications retrieves all pending verifications
-func (h *VerificationHandler) GetPendingVerifications(c *gin.Context) {
-	verifications, err := h.verificationService.GetPendingVerifications()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, verifications)
-}
-
-// GetFailedVerifications retrieves all failed verifications
-func (h *VerificationHandler) GetFailedVerifications(c *gin.Context) {
-	verifications, err := h.verificationService.GetFailedVerifications()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, verifications)
-}
-
-// GetVerificationsByVerifier retrieves verifications by verifier ID
-func (h *VerificationHandler) GetVerificationsByVerifier(c *gin.Context) {
-	verifierID, err := uuid.Parse(c.Param("verifier_id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verifier ID"})
-		return
-	}
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-
-	verifications, total, err := h.verificationService.GetVerificationsByVerifier(verifierID, page, pageSize)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"verifications": verifications,
-		"total":         total,
-		"page":          page,
-		"page_size":     pageSize,
-	})
-}
-
-// GetVerificationsByMethod retrieves verifications by method
-func (h *VerificationHandler) GetVerificationsByMethod(c *gin.Context) {
-	method := model.VerificationMethod(c.Param("method"))
-	if !method.IsValid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification method"})
-		return
-	}
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-
-	verifications, total, err := h.verificationService.GetVerificationsByMethod(method, page, pageSize)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"verifications": verifications,
-		"total":         total,
-		"page":          page,
-		"page_size":     pageSize,
-	})
-}
-
-// GetVerificationsByDateRange retrieves verifications within a date range
-func (h *VerificationHandler) GetVerificationsByDateRange(c *gin.Context) {
-	startDate, err := time.Parse(time.RFC3339, c.Query("start_date"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid start date"})
-		return
-	}
-
-	endDate, err := time.Parse(time.RFC3339, c.Query("end_date"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid end date"})
-		return
-	}
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-
-	verifications, total, err := h.verificationService.GetVerificationsByDateRange(startDate, endDate, page, pageSize)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"verifications": verifications,
-		"total":         total,
-		"page":          page,
-		"page_size":     pageSize,
-	})
-}
-
-// UpdateConfidenceScore updates the confidence score of a verification
-func (h *VerificationHandler) UpdateConfidenceScore(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification ID"})
-		return
-	}
-
-	var req UpdateConfidenceScoreRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = h.verificationService.UpdateConfidenceScore(id, req.Score)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "confidence score updated successfully"})
-}
-
-// UpdateVerificationMetadata updates the metadata of a verification
-func (h *VerificationHandler) UpdateVerificationMetadata(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification ID"})
-		return
-	}
-
-	var req UpdateMetadataRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = h.verificationService.UpdateVerificationMetadata(id, req.Metadata)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "metadata updated successfully"})
 }

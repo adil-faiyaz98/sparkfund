@@ -1,0 +1,20 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: kyc-service-io-stress
+  namespace: chaos-mesh
+spec:
+  action: latency
+  mode: one
+  selector:
+    namespaces:
+      - sparkfund-prod
+    labelSelectors:
+      app.kubernetes.io/name: kyc-service
+  volumePath: /
+  path: "*"
+  delay: "100ms"
+  percent: 50
+  duration: "300s"
+  scheduler:
+    cron: "0 0 * * 2"  # Every Tuesday at midnight

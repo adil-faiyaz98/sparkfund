@@ -1,0 +1,113 @@
+{{- define "common.istio-virtualservice" -}}
+{{- if .Values.istio.virtualService.enabled -}}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  hosts:
+    {{- range .Values.istio.virtualService.hosts }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- if .Values.istio.virtualService.gateways }}
+  gateways:
+    {{- range .Values.istio.virtualService.gateways }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  http:
+    - match:
+        {{- range .Values.istio.virtualService.match }}
+        - uri:
+            {{ .type }}: {{ .value | quote }}
+        {{- end }}
+      route:
+        - destination:
+            host: {{ include "common.fullname" . }}
+            port:
+              number: {{ .Values.service.port }}
+          {{- if .Values.istio.virtualService.retries }}
+          retries:
+            attempts: {{ .Values.istio.virtualService.retries.attempts }}
+            perTryTimeout: {{ .Values.istio.virtualService.retries.perTryTimeout }}
+            retryOn: {{ .Values.istio.virtualService.retries.retryOn }}
+          {{- end }}
+      {{- if .Values.istio.virtualService.timeout }}
+      timeout: {{ .Values.istio.virtualService.timeout }}
+      {{- end }}
+      {{- if .Values.istio.virtualService.fault }}
+      fault:
+        {{- if .Values.istio.virtualService.fault.delay }}
+        delay:
+          percentage:
+            value: {{ .Values.istio.virtualService.fault.delay.percentage }}
+          fixedDelay: {{ .Values.istio.virtualService.fault.delay.fixedDelay }}
+        {{- end }}
+        {{- if .Values.istio.virtualService.fault.abort }}
+        abort:
+          percentage:
+            value: {{ .Values.istio.virtualService.fault.abort.percentage }}
+          httpStatus: {{ .Values.istio.virtualService.fault.abort.httpStatus }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.istio.virtualService.corsPolicy }}
+      corsPolicy:
+        allowOrigins:
+          {{- range .Values.istio.virtualService.corsPolicy.allowOrigins }}
+          - exact: {{ . | quote }}
+          {{- end }}
+        allowMethods:
+          {{- range .Values.istio.virtualService.corsPolicy.allowMethods }}
+          - {{ . | quote }}
+          {{- end }}
+        allowHeaders:
+          {{- range .Values.istio.virtualService.corsPolicy.allowHeaders }}
+          - {{ . | quote }}
+          {{- end }}
+        maxAge: {{ .Values.istio.virtualService.corsPolicy.maxAge | quote }}
+      {{- end }}
+      {{- if .Values.istio.virtualService.headers }}
+      headers:
+        request:
+          {{- if .Values.istio.virtualService.headers.request.set }}
+          set:
+            {{- range $key, $value := .Values.istio.virtualService.headers.request.set }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.istio.virtualService.headers.request.add }}
+          add:
+            {{- range $key, $value := .Values.istio.virtualService.headers.request.add }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.istio.virtualService.headers.request.remove }}
+          remove:
+            {{- range .Values.istio.virtualService.headers.request.remove }}
+            - {{ . | quote }}
+            {{- end }}
+          {{- end }}
+        response:
+          {{- if .Values.istio.virtualService.headers.response.set }}
+          set:
+            {{- range $key, $value := .Values.istio.virtualService.headers.response.set }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.istio.virtualService.headers.response.add }}
+          add:
+            {{- range $key, $value := .Values.istio.virtualService.headers.response.add }}
+            {{ $key }}: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.istio.virtualService.headers.response.remove }}
+          remove:
+            {{- range .Values.istio.virtualService.headers.response.remove }}
+            - {{ . | quote }}
+            {{- end }}
+          {{- end }}
+      {{- end }}
+{{- end }}
+{{- end -}}

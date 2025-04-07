@@ -1,0 +1,80 @@
+app:
+  environment: "production"
+
+server:
+  port: 8084
+  trusted_proxies:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+
+database:
+  host: postgres
+  port: 5432
+  user: postgres
+  password: ${DB_PASSWORD}
+  name: user_service
+  sslmode: require
+  max_idle_conns: 20
+  max_open_conns: 200
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiry: 12h
+  refresh: 168h
+
+rate_limit:
+  enabled: true
+  requests: 100
+  window: 1m
+  burst: 20
+
+security:
+  allowed_origins:
+    - https://sparkfund.com
+    - https://app.sparkfund.com
+  enable_csrf: true
+
+cache:
+  type: redis
+  redis:
+    host: redis
+    port: 6379
+    password: ${REDIS_PASSWORD}
+
+tls:
+  enabled: true
+  cert_file: /etc/ssl/certs/user-service.crt
+  key_file: /etc/ssl/private/user-service.key
+  min_version: "1.2"
+
+password:
+  min_length: 12
+  require_uppercase: true
+  require_lowercase: true
+  require_number: true
+  require_special: true
+  max_age_days: 60
+  history_count: 10
+  lockout_threshold: 5
+  lockout_duration: 30m
+
+session:
+  idle_timeout: 15m
+  absolute_timeout: 12h
+  cookie_secure: true
+  cookie_http_only: true
+  cookie_same_site: "strict"
+
+storage:
+  type: "s3"
+  s3:
+    bucket: "user-profiles-prod"
+    region: "us-east-1"
+
+notifications:
+  providers:
+    email:
+      smtp_host: "smtp.sparkfund.com"
+      smtp_port: 587
+      from_address: "noreply@sparkfund.com"

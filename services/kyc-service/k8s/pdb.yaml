@@ -1,9 +1,12 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: kyc-service-pdb
+  name: kyc-service
+  namespace: sparkfund
+  labels:
+    app: kyc-service
 spec:
   minAvailable: 2
   selector:
     matchLabels:
-      app: kyc-service 
+      app: kyc-service

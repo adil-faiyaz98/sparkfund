@@ -1,0 +1,31 @@
+{{- if and .Values.persistence.uploads.enabled (not .Values.persistence.uploads.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ai-service.fullname" . }}-uploads
+  labels:
+    {{- include "ai-service.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.uploads.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.uploads.size }}
+  storageClassName: {{ .Values.persistence.uploads.storageClass }}
+{{- end }}
+
+{{- if and .Values.persistence.models.enabled (not .Values.persistence.models.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ai-service.fullname" . }}-models
+  labels:
+    {{- include "ai-service.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.models.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.models.size }}
+  storageClassName: {{ .Values.persistence.models.storageClass }}
+{{- end }}

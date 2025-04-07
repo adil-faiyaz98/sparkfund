@@ -1,0 +1,215 @@
+# Istio Helm chart values for SparkFund
+global:
+  # Default hub for Istio images
+  hub: docker.io/istio
+  
+  # Default tag for Istio images
+  tag: 1.18.0
+  
+  # Specify the pod anti-affinity for the Istio components
+  defaultPodAntiAffinity:
+    type: "soft"
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - istiod
+          topologyKey: kubernetes.io/hostname
+  
+  # Specify the node affinity for the Istio components
+  defaultNodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
+  
+  # Configure proxy
+  proxy:
+    # Resources for the sidecar
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    
+    # Enable access logging
+    accessLogFile: "/dev/stdout"
+    
+    # Configure the proxy to use Envoy's access logging format
+    accessLogFormat: |
+      {
+        "protocol": "%PROTOCOL%",
+        "upstream_service_time": "%REQ(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+        "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+        "duration": "%DURATION%",
+        "upstream_transport_failure_reason": "%UPSTREAM_TRANSPORT_FAILURE_REASON%",
+        "route_name": "%ROUTE_NAME%",
+        "downstream_local_address": "%DOWNSTREAM_LOCAL_ADDRESS%",
+        "user_agent": "%REQ(USER-AGENT)%",
+        "response_code": "%RESPONSE_CODE%",
+        "response_flags": "%RESPONSE_FLAGS%",
+        "start_time": "%START_TIME%",
+        "method": "%REQ(:METHOD)%",
+        "request_id": "%REQ(X-REQUEST-ID)%",
+        "upstream_host": "%UPSTREAM_HOST%",
+        "x_forwarded_for": "%REQ(X-FORWARDED-FOR)%",
+        "requested_server_name": "%REQUESTED_SERVER_NAME%",
+        "bytes_received": "%BYTES_RECEIVED%",
+        "istio_policy_status": "%DYNAMIC_METADATA(istio.mixer:status)%",
+        "bytes_sent": "%BYTES_SENT%",
+        "upstream_cluster": "%UPSTREAM_CLUSTER%",
+        "downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%",
+        "authority": "%REQ(:AUTHORITY)%",
+        "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+        "response_code_details": "%RESPONSE_CODE_DETAILS%"
+      }
+    
+    # Configure the tracing
+    tracer: zipkin
+  
+  # Configure the mesh
+  meshConfig:
+    # Enable access logging
+    accessLogFile: "/dev/stdout"
+    
+    # Enable automatic mTLS
+    enableAutoMtls: true
+    
+    # Default behavior for services outside the mesh
+    outboundTrafficPolicy:
+      mode: ALLOW_ANY
+    
+    # Configure the default proxy
+    defaultConfig:
+      # Configure tracing
+      tracing:
+        zipkin:
+          address: zipkin.monitoring:9411
+        sampling: 100.0
+      
+      # Configure health checks
+      proxyStatsMatcher:
+        inclusionRegexps:
+          - ".*"
+      
+      # Configure Envoy to use the XDS-over-MCP protocol
+      envoyAccessLogService:
+        address: accesslog-service.monitoring:15000
+      
+      # Configure Envoy metrics
+      envoyMetricsService:
+        address: metrics-service.monitoring:15000
+
+# Configure the Istio base component
+base:
+  # Enable the validation webhook
+  enableIstioConfigCRDs: true
+
+# Configure the Istio discovery component (istiod)
+pilot:
+  # Configure the resources for istiod
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
+    limits:
+      cpu: 1000m
+      memory: 4096Mi
+  
+  # Configure autoscaling for istiod
+  autoscaleEnabled: true
+  autoscaleMin: 2
+  autoscaleMax: 5
+  
+  # Configure the environment variables for istiod
+  env:
+    # Configure the log level
+    PILOT_LOG_LEVEL: "info"
+    
+    # Configure the tracing
+    PILOT_TRACE_SAMPLING: "100"
+  
+  # Configure the pod anti-affinity for istiod
+  podAntiAffinityLabelSelector:
+    - key: app
+      operator: In
+      values:
+        - istiod
+      topologyKey: kubernetes.io/hostname
+
+# Configure the Istio ingress gateway
+ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
+    
+    # Configure the resources for the ingress gateway
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+    
+    # Configure autoscaling for the ingress gateway
+    autoscaleEnabled: true
+    autoscaleMin: 2
+    autoscaleMax: 5
+    
+    # Configure the service for the ingress gateway
+    service:
+      type: LoadBalancer
+      ports:
+        - name: http2
+          port: 80
+          targetPort: 8080
+        - name: https
+          port: 443
+          targetPort: 8443
+    
+    # Configure the pod anti-affinity for the ingress gateway
+    podAntiAffinityLabelSelector:
+      - key: app
+        operator: In
+        values:
+          - istio-ingressgateway
+        topologyKey: kubernetes.io/hostname
+
+# Configure the Istio egress gateway
+egressGateways:
+  - name: istio-egressgateway
+    enabled: true
+    
+    # Configure the resources for the egress gateway
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+    
+    # Configure autoscaling for the egress gateway
+    autoscaleEnabled: true
+    autoscaleMin: 2
+    autoscaleMax: 5
+    
+    # Configure the pod anti-affinity for the egress gateway
+    podAntiAffinityLabelSelector:
+      - key: app
+        operator: In
+        values:
+          - istio-egressgateway
+        topologyKey: kubernetes.io/hostname
+
+# Configure the Istio CNI plugin
+cni:
+  enabled: false

@@ -1,0 +1,358 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: sparkfund-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sparkfund-network-dev
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: sparkfund-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sparkfund-network-dev
+
+  # Jaeger
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    container_name: sparkfund-jaeger-dev
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+      - "14250:14250"
+      - "14268:14268"
+      - "14269:14269"
+      - "9411:9411"
+    volumes:
+      - jaeger_data:/var/lib/jaeger
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:16686/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sparkfund-network-dev
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: sparkfund-prometheus-dev
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./pkg/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sparkfund-network-dev
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:10.0.3
+    container_name: sparkfund-grafana-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sparkfund-network-dev
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+      target: development
+    container_name: sparkfund-api-gateway-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./services/api-gateway:/app
+    environment:
+      - APP_ENV=development
+      - APP_LOG_LEVEL=debug
+      - APP_LOG_FORMAT=console
+      - APP_METRICS_ENABLED=true
+      - APP_METRICS_PORT=9090
+      - APP_METRICS_PATH=/metrics
+      - APP_TRACING_ENABLED=true
+      - APP_TRACING_ENDPOINT=http://jaeger:14268/api/traces
+      - APP_TRACING_SAMPLING_RATE=1.0
+      - APP_JWT_SECRET=dev-jwt-secret
+      - APP_JWT_EXPIRY=24h
+      - APP_KYC_SERVICE_URL=http://kyc-service:8080
+      - APP_INVESTMENT_SERVICE_URL=http://investment-service:8080
+      - APP_USER_SERVICE_URL=http://user-service:8080
+      - APP_CACHE_ENABLED=true
+      - APP_CACHE_TYPE=redis
+      - APP_CACHE_REDIS_HOST=redis
+      - APP_CACHE_REDIS_PORT=6379
+    depends_on:
+      - kyc-service
+      - investment-service
+      - user-service
+      - redis
+      - jaeger
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sparkfund-network-dev
+
+  # KYC Service
+  kyc-service:
+    build:
+      context: ./services/kyc-service
+      dockerfile: Dockerfile
+      target: development
+    container_name: sparkfund-kyc-service-dev
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./services/kyc-service:/app
+      - kyc_uploads:/data/documents
+    environment:
+      - APP_ENV=development
+      - APP_LOG_LEVEL=debug
+      - APP_LOG_FORMAT=console
+      - APP_METRICS_ENABLED=true
+      - APP_METRICS_PORT=9090
+      - APP_METRICS_PATH=/metrics
+      - APP_TRACING_ENABLED=true
+      - APP_TRACING_ENDPOINT=http://jaeger:14268/api/traces
+      - APP_TRACING_SAMPLING_RATE=1.0
+      - APP_DATABASE_HOST=postgres
+      - APP_DATABASE_PORT=5432
+      - APP_DATABASE_USER=kyc
+      - APP_DATABASE_PASSWORD=kyc
+      - APP_DATABASE_NAME=kyc
+      - APP_DATABASE_SSLMODE=disable
+      - APP_JWT_SECRET=dev-jwt-secret
+      - APP_JWT_EXPIRY=24h
+      - APP_CACHE_ENABLED=true
+      - APP_CACHE_TYPE=redis
+      - APP_CACHE_REDIS_HOST=redis
+      - APP_CACHE_REDIS_PORT=6379
+      - APP_AI_SERVICE_URL=http://ai-service:8000
+      - APP_AI_SERVICE_API_KEY=dev-api-key
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sparkfund-network-dev
+
+  # Investment Service
+  investment-service:
+    build:
+      context: ./services/investment-service
+      dockerfile: Dockerfile
+      target: development
+    container_name: sparkfund-investment-service-dev
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./services/investment-service:/app
+      - investment_uploads:/data/investments
+    environment:
+      - APP_ENV=development
+      - APP_LOG_LEVEL=debug
+      - APP_LOG_FORMAT=console
+      - APP_METRICS_ENABLED=true
+      - APP_METRICS_PORT=9090
+      - APP_METRICS_PATH=/metrics
+      - APP_TRACING_ENABLED=true
+      - APP_TRACING_ENDPOINT=http://jaeger:14268/api/traces
+      - APP_TRACING_SAMPLING_RATE=1.0
+      - APP_DATABASE_HOST=postgres
+      - APP_DATABASE_PORT=5432
+      - APP_DATABASE_USER=investment
+      - APP_DATABASE_PASSWORD=investment
+      - APP_DATABASE_NAME=investment
+      - APP_DATABASE_SSLMODE=disable
+      - APP_JWT_SECRET=dev-jwt-secret
+      - APP_JWT_EXPIRY=24h
+      - APP_CACHE_ENABLED=true
+      - APP_CACHE_TYPE=redis
+      - APP_CACHE_REDIS_HOST=redis
+      - APP_CACHE_REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sparkfund-network-dev
+
+  # User Service
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+      target: development
+    container_name: sparkfund-user-service-dev
+    ports:
+      - "8083:8080"
+    volumes:
+      - ./services/user-service:/app
+      - user_uploads:/data/users
+    environment:
+      - APP_ENV=development
+      - APP_LOG_LEVEL=debug
+      - APP_LOG_FORMAT=console
+      - APP_METRICS_ENABLED=true
+      - APP_METRICS_PORT=9090
+      - APP_METRICS_PATH=/metrics
+      - APP_TRACING_ENABLED=true
+      - APP_TRACING_ENDPOINT=http://jaeger:14268/api/traces
+      - APP_TRACING_SAMPLING_RATE=1.0
+      - APP_DATABASE_HOST=postgres
+      - APP_DATABASE_PORT=5432
+      - APP_DATABASE_USER=user
+      - APP_DATABASE_PASSWORD=user
+      - APP_DATABASE_NAME=user
+      - APP_DATABASE_SSLMODE=disable
+      - APP_JWT_SECRET=dev-jwt-secret
+      - APP_JWT_EXPIRY=24h
+      - APP_CACHE_ENABLED=true
+      - APP_CACHE_TYPE=redis
+      - APP_CACHE_REDIS_HOST=redis
+      - APP_CACHE_REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sparkfund-network-dev
+
+  # AI Service
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+      target: development
+    container_name: sparkfund-ai-service-dev
+    ports:
+      - "8084:8000"
+    volumes:
+      - ./services/ai-service:/app
+      - ai_uploads:/app/uploads
+      - ai_models:/app/models
+    environment:
+      - DEBUG=True
+      - HOST=0.0.0.0
+      - PORT=8000
+      - API_KEY=dev-api-key
+      - MODEL_PATH=/app/models
+      - UPLOAD_DIR=/app/uploads
+      - LOG_LEVEL=debug
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9090
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sparkfund-network-dev
+
+volumes:
+  postgres_data:
+  redis_data:
+  jaeger_data:
+  prometheus_data:
+  grafana_data:
+  kyc_uploads:
+  investment_uploads:
+  user_uploads:
+  ai_uploads:
+  ai_models:
+
+networks:
+  sparkfund-network-dev:
+    driver: bridge

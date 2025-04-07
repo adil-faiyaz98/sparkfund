@@ -1,0 +1,77 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-rollouts
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    targetRevision: 2.32.0
+    chart: argo-rollouts
+    helm:
+      values: |
+        controller:
+          replicas: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+          podAnnotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "8090"
+            prometheus.io/path: "/metrics"
+        
+        dashboard:
+          enabled: true
+          service:
+            type: ClusterIP
+          ingress:
+            enabled: true
+            ingressClassName: nginx
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
+              nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            hosts:
+              - host: rollouts.sparkfund.com
+                paths:
+                  - path: /
+                    pathType: Prefix
+            tls:
+              - secretName: rollouts-tls
+                hosts:
+                  - rollouts.sparkfund.com
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-rollouts
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

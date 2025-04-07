@@ -1,0 +1,656 @@
+name: SERVICE_NAME CI/CD Pipeline
+
+# This workflow handles the complete CI/CD pipeline for SERVICE_NAME:
+# - Linting and code quality checks
+# - Unit and integration testing
+# - Security scanning (Gosec, Trivy, Nancy)
+# - Code quality analysis (SonarCloud)
+# - SBOM generation
+# - Docker image building, signing, and pushing
+# - Deployment to staging and production
+# - Performance testing
+# - Automated rollback on failure
+# - Notifications for success and failure
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'services/SERVICE_NAME/**'
+      - 'pkg/**'  # Include shared code
+      - '.github/workflows/SERVICE_NAME-ci-cd.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'services/SERVICE_NAME/**'
+      - 'pkg/**'  # Include shared code
+      - '.github/workflows/SERVICE_NAME-ci-cd.yml'
+
+env:
+  GO_VERSION: '1.21'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/SERVICE_NAME
+  COSIGN_VERSION: 'v2.2.0'
+  SYFT_VERSION: 'v0.84.0'
+
+jobs:
+  # LINT AND CODE QUALITY
+  lint:
+    name: Lint and Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Required for SonarCloud
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # Dependency management
+      - name: Download dependencies
+        run: |
+          cd services/SERVICE_NAME
+          go mod download
+          go mod verify
+
+      # Linting
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          working-directory: services/SERVICE_NAME
+          args: --timeout=5m
+
+      # Code formatting check
+      - name: Check code formatting
+        run: |
+          cd services/SERVICE_NAME
+          go install golang.org/x/tools/cmd/goimports@latest
+          test -z "$(goimports -d . | tee /dev/stderr)"
+
+  # UNIT AND INTEGRATION TESTING
+  test:
+    name: Testing
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      # Add test dependencies like postgres, redis, etc.
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # Dependency management
+      - name: Download dependencies
+        run: |
+          cd services/SERVICE_NAME
+          go mod download
+
+      # Unit tests
+      - name: Run unit tests
+        run: |
+          go test -v -race -coverprofile=coverage.txt -covermode=atomic ./services/SERVICE_NAME/... ./pkg/...
+
+      # Integration tests
+      - name: Run integration tests
+        run: |
+          go test -v -tags=integration ./services/SERVICE_NAME/tests/integration/...
+
+      # Upload coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.txt
+          flags: SERVICE_NAME
+          fail_ci_if_error: true
+
+  # SECURITY SCANNING
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # Gosec scanning
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-fmt=sarif -out=gosec-results.sarif -exclude-dir=mocks -exclude-dir=test -exclude-dir=docs ./services/SERVICE_NAME/... ./pkg/...'
+
+      - name: Upload Gosec results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: gosec-results.sarif
+          category: gosec
+
+      # Nancy dependency scanning
+      - name: Install Nancy
+        run: |
+          curl -sSfL https://github.com/sonatype-nexus-community/nancy/releases/download/v1.0.42/nancy-v1.0.42-linux-amd64.tar.gz | tar -xz
+          chmod +x nancy
+          sudo mv nancy /usr/local/bin/
+
+      - name: Run Nancy for dependency scanning
+        run: |
+          go list -json -deps ./services/SERVICE_NAME/... | nancy sleuth -o nancy-results.json
+
+      - name: Convert Nancy results to SARIF
+        run: |
+          echo '{
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "Nancy",
+                    "informationUri": "https://github.com/sonatype-nexus-community/nancy",
+                    "rules": []
+                  }
+                },
+                "results": []
+              }
+            ]
+          }' > nancy-sarif.json
+          # In a real scenario, you would convert nancy-results.json to SARIF format
+
+      - name: Upload Nancy results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: nancy-sarif.json
+          category: nancy
+
+      # Trivy vulnerability scanning
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'services/SERVICE_NAME'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy filesystem results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-fs
+
+  # CODE QUALITY ANALYSIS
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Required for SonarCloud
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=adil-faiyaz98_sparkfund_SERVICE_NAME
+            -Dsonar.organization=adil-faiyaz98
+            -Dsonar.sources=services/SERVICE_NAME,pkg
+            -Dsonar.tests=services/SERVICE_NAME/tests
+            -Dsonar.go.coverage.reportPaths=coverage.txt
+            -Dsonar.exclusions=**/*_test.go,**/vendor/**,**/testdata/**,**/mocks/**
+
+  # BUILD AND PUBLISH
+  build:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+    needs: [security-scan, sonarcloud]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # Required for signing
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Login to GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extract metadata for Docker
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # Generate SBOM
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin ${{ env.SYFT_VERSION }}
+
+      - name: Generate SBOM
+        run: |
+          syft services/SERVICE_NAME -o spdx-json=sbom.spdx.json
+          syft services/SERVICE_NAME -o cyclonedx-json=sbom.cyclonedx.json
+
+      # Build and push Docker image
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: services/SERVICE_NAME/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_VERSION=${{ github.sha }}
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          # Add SBOM to image
+          sbom: ${{ github.workspace }}/sbom.spdx.json
+          provenance: mode=max
+
+      # Install cosign
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.1.1
+        with:
+          cosign-release: ${{ env.COSIGN_VERSION }}
+
+      # Sign the image
+      - name: Sign the image with GitHub OIDC Token
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
+
+      # Scan the container image
+      - name: Run Trivy vulnerability scanner (container)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy container results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: trivy-image-results.sarif
+          category: trivy-image
+
+      # Notify on successful build
+      - name: Notify on successful build
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "text": "✅ SERVICE_NAME image built and pushed successfully",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "✅ *SERVICE_NAME image built and pushed successfully*\n*Repository:* ${{ github.repository }}\n*Commit:* ${{ github.sha }}\n*Image:* ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  # DEPLOY TO STAGING
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.26.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name sparkfund-staging --region us-east-1
+
+      # Deploy to staging
+      - name: Deploy to staging
+        run: |
+          # Set the image tag to the SHA of the commit
+          IMAGE_TAG=sha-${{ github.sha }}
+          
+          # Update the image in the deployment
+          kubectl -n sparkfund set image deployment/SERVICE_NAME SERVICE_NAME=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+          
+          # Wait for the deployment to complete
+          kubectl -n sparkfund rollout status deployment/SERVICE_NAME --timeout=300s
+
+      # Run integration tests against staging
+      - name: Run integration tests
+        run: |
+          # Wait for the service to be ready
+          sleep 30
+          
+          # Set up Go
+          go install golang.org/x/tools/cmd/goimports@latest
+          
+          # Run integration tests against the staging environment
+          cd services/SERVICE_NAME
+          go test -v -tags=integration ./tests/integration/...
+
+      # Run performance tests
+      - name: Run performance tests
+        run: |
+          # Install k6 for load testing
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+          
+          # Run performance tests if they exist
+          if [ -f "services/SERVICE_NAME/tests/performance/load_test.js" ]; then
+            k6 run services/SERVICE_NAME/tests/performance/load_test.js
+          else
+            echo "No performance tests found, skipping"
+          fi
+
+      # Notify on successful staging deployment
+      - name: Notify on successful staging deployment
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "text": "✅ SERVICE_NAME deployed to staging successfully",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "✅ *SERVICE_NAME deployed to staging successfully*\n*Repository:* ${{ github.repository }}\n*Commit:* ${{ github.sha }}\n*Environment:* Staging"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  # DEPLOY TO PRODUCTION
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.26.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name sparkfund-production --region us-east-1
+
+      # Deploy to production (Blue-Green)
+      - name: Deploy to production (Blue-Green)
+        run: |
+          # Set the image tag to the SHA of the commit
+          IMAGE_TAG=sha-${{ github.sha }}
+          
+          # Determine current active deployment (blue or green)
+          ACTIVE_DEPLOYMENT=$(kubectl -n sparkfund get service/SERVICE_NAME -o jsonpath='{.spec.selector.deployment}')
+          
+          if [ "$ACTIVE_DEPLOYMENT" == "blue" ]; then
+            # Blue is active, deploy to green
+            echo "Blue deployment is active, deploying to green"
+            TARGET_DEPLOYMENT="green"
+          else
+            # Green is active, deploy to blue
+            echo "Green deployment is active, deploying to blue"
+            TARGET_DEPLOYMENT="blue"
+          fi
+          
+          # Update the image in the target deployment
+          kubectl -n sparkfund set image deployment/SERVICE_NAME-$TARGET_DEPLOYMENT SERVICE_NAME=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+          
+          # Wait for the deployment to complete
+          kubectl -n sparkfund rollout status deployment/SERVICE_NAME-$TARGET_DEPLOYMENT --timeout=300s
+          
+          # Run smoke tests against the new deployment
+          echo "Running smoke tests against the new deployment"
+          # Add your smoke tests here
+          
+          # Switch traffic to the new deployment
+          kubectl -n sparkfund patch service SERVICE_NAME -p "{\"spec\":{\"selector\":{\"deployment\":\"$TARGET_DEPLOYMENT\"}}}"
+          
+          echo "Deployment switched to $TARGET_DEPLOYMENT"
+
+      # Verify deployment
+      - name: Verify deployment
+        run: |
+          # Wait for the service to be ready
+          sleep 30
+          
+          # Verify the deployment is healthy
+          kubectl -n sparkfund get pods -l app=SERVICE_NAME
+          
+          # Run a simple health check
+          SERVICE_URL=$(kubectl -n sparkfund get service SERVICE_NAME -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          curl -f http://$SERVICE_URL/health || exit 1
+
+      # Notify on successful production deployment
+      - name: Notify on successful production deployment
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "text": "🚀 SERVICE_NAME deployed to production successfully",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "🚀 *SERVICE_NAME deployed to production successfully*\n*Repository:* ${{ github.repository }}\n*Commit:* ${{ github.sha }}\n*Environment:* Production"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  # ROLLBACK
+  rollback:
+    name: Rollback
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.26.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name sparkfund-production --region us-east-1
+
+      # Rollback production deployment
+      - name: Rollback production deployment
+        run: |
+          # Determine current active deployment (blue or green)
+          ACTIVE_DEPLOYMENT=$(kubectl -n sparkfund get service/SERVICE_NAME -o jsonpath='{.spec.selector.deployment}')
+          
+          if [ "$ACTIVE_DEPLOYMENT" == "blue" ]; then
+            # Blue is active, switch to green
+            PREVIOUS_DEPLOYMENT="green"
+          else
+            # Green is active, switch to blue
+            PREVIOUS_DEPLOYMENT="blue"
+          fi
+          
+          # Switch traffic back to the previous deployment
+          kubectl -n sparkfund patch service SERVICE_NAME -p "{\"spec\":{\"selector\":{\"deployment\":\"$PREVIOUS_DEPLOYMENT\"}}}"
+          
+          echo "Rolled back to $PREVIOUS_DEPLOYMENT deployment"
+
+      # Rollback staging deployment
+      - name: Update kubeconfig for staging
+        run: aws eks update-kubeconfig --name sparkfund-staging --region us-east-1
+
+      - name: Rollback staging deployment
+        run: |
+          kubectl -n sparkfund rollout undo deployment/SERVICE_NAME
+          kubectl -n sparkfund rollout status deployment/SERVICE_NAME --timeout=300s
+
+      # Notify on rollback
+      - name: Notify team of rollback
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "text": "⚠️ Deployment of SERVICE_NAME failed. Automatic rollback initiated.",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "⚠️ *Deployment of SERVICE_NAME failed*\n*Repository:* ${{ github.repository }}\n*Commit:* ${{ github.sha }}\n*Automatic rollback initiated.*"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

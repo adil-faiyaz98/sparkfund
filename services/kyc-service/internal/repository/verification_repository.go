@@ -20,45 +20,55 @@ func NewVerificationRepository(db *gorm.DB) *VerificationRepository {
 	return &VerificationRepository{db: db}
 }
 
-// Create creates new verification details
-func (r *VerificationRepository) Create(verification *model.Verification) error {
-	return r.db.Create(verification).Error
+// Create creates a new verification
+func (r *VerificationRepository) Create(ctx context.Context, verification *model.Verification) error {
+	return r.db.WithContext(ctx).Create(verification).Error
 }
 
-// GetByID retrieves verification details by ID
-func (r *VerificationRepository) GetByID(id uuid.UUID) (*model.Verification, error) {
+// GetByID retrieves a verification by ID
+func (r *VerificationRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Verification, error) {
 	var verification model.Verification
-	err := r.db.First(&verification, "id = ?", id).Error
+	err := r.db.WithContext(ctx).First(&verification, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
 	return &verification, nil
 }
 
-// GetByDocumentID retrieves verification details by document ID
-func (r *VerificationRepository) GetByDocumentID(documentID uuid.UUID) ([]*model.Verification, error) {
+// GetByDocumentID retrieves verifications by document ID
+func (r *VerificationRepository) GetByDocumentID(ctx context.Context, documentID uuid.UUID) ([]*model.Verification, error) {
 	var verifications []*model.Verification
-	err := r.db.Where("document_id = ?", documentID).Find(&verifications).Error
+	err := r.db.WithContext(ctx).Where("document_id = ?", documentID).Find(&verifications).Error
 	if err != nil {
 		return nil, err
 	}
 	return verifications, nil
 }
 
-// Update updates verification details
-func (r *VerificationRepository) Update(verification *model.Verification) error {
-	return r.db.Save(verification).Error
+// GetByKYCID retrieves verifications by KYC ID
+func (r *VerificationRepository) GetByKYCID(ctx context.Context, kycID uuid.UUID) ([]*model.Verification, error) {
+	var verifications []*model.Verification
+	err := r.db.WithContext(ctx).Where("kyc_id = ?", kycID).Find(&verifications).Error
+	if err != nil {
+		return nil, err
+	}
+	return verifications, nil
 }
 
-// Delete deletes a verification
-func (r *VerificationRepository) Delete(id uuid.UUID) error {
-	return r.db.Delete(&model.Verification{}, "id = ?", id).Error
+// Update updates an existing verification
+func (r *VerificationRepository) Update(ctx context.Context, verification *model.Verification) error {
+	return r.db.WithContext(ctx).Save(verification).Error
+}
+
+// Delete soft deletes a verification
+func (r *VerificationRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&model.Verification{}, "id = ?", id).Error
 }
 
 // GetHistory retrieves verification history
-func (r *VerificationRepository) GetHistory(verificationID uuid.UUID) ([]*model.VerificationHistory, error) {
+func (r *VerificationRepository) GetHistory(ctx context.Context, verificationID uuid.UUID) ([]*model.VerificationHistory, error) {
 	var history []*model.VerificationHistory
-	err := r.db.Where("verification_id = ?", verificationID).Order("created_at DESC").Find(&history).Error
+	err := r.db.WithContext(ctx).Where("verification_id = ?", verificationID).Order("created_at DESC").Find(&history).Error
 	if err != nil {
 		return nil, err
 	}
@@ -66,43 +76,43 @@ func (r *VerificationRepository) GetHistory(verificationID uuid.UUID) ([]*model.
 }
 
 // AddHistoryEntry adds a new history entry
-func (r *VerificationRepository) AddHistoryEntry(entry *model.VerificationHistory) error {
-	return r.db.Create(entry).Error
+func (r *VerificationRepository) AddHistoryEntry(ctx context.Context, entry *model.VerificationHistory) error {
+	return r.db.WithContext(ctx).Create(entry).Error
 }
 
 // GetStats retrieves verification statistics
-func (r *VerificationRepository) GetStats() (*model.VerificationStats, error) {
+func (r *VerificationRepository) GetStats(ctx context.Context) (*model.VerificationStats, error) {
 	var stats model.VerificationStats
 
 	// Get total count
-	err := r.db.Model(&model.Verification{}).Count(&stats.TotalCount).Error
+	err := r.db.WithContext(ctx).Model(&model.Verification{}).Count(&stats.TotalCount).Error
 	if err != nil {
 		return nil, err
 	}
 
 	// Get counts by status
-	err = r.db.Model(&model.Verification{}).Where("status = ?", model.VerificationStatusPending).Count(&stats.PendingCount).Error
+	err = r.db.WithContext(ctx).Model(&model.Verification{}).Where("status = ?", model.VerificationStatusPending).Count(&stats.PendingCount).Error
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.db.Model(&model.Verification{}).Where("status = ?", model.VerificationStatusCompleted).Count(&stats.CompletedCount).Error
+	err = r.db.WithContext(ctx).Model(&model.Verification{}).Where("status = ?", model.VerificationStatusCompleted).Count(&stats.CompletedCount).Error
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.db.Model(&model.Verification{}).Where("status = ?", model.VerificationStatusFailed).Count(&stats.FailedCount).Error
+	err = r.db.WithContext(ctx).Model(&model.Verification{}).Where("status = ?", model.VerificationStatusFailed).Count(&stats.FailedCount).Error
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.db.Model(&model.Verification{}).Where("status = ?", model.VerificationStatusExpired).Count(&stats.ExpiredCount).Error
+	err = r.db.WithContext(ctx).Model(&model.Verification{}).Where("status = ?", model.VerificationStatusExpired).Count(&stats.ExpiredCount).Error
 	if err != nil {
 		return nil, err
 	}
 
 	// Calculate average confidence score
-	err = r.db.Model(&model.Verification{}).Where("status = ?", model.VerificationStatusCompleted).Select("AVG(confidence_score)").Row().Scan(&stats.AverageConfidence)
+	err = r.db.WithContext(ctx).Model(&model.Verification{}).Where("status = ?", model.VerificationStatusCompleted).Select("AVG(confidence_score)").Row().Scan(&stats.AverageConfidence)
 	if err != nil {
 		return nil, err
 	}
@@ -113,23 +123,23 @@ func (r *VerificationRepository) GetStats() (*model.VerificationStats, error) {
 	}
 
 	// Calculate average processing time
-	var avgTime time.Duration
-	err = r.db.Model(&model.Verification{}).
+	var avgProcessingTime float64
+	err = r.db.WithContext(ctx).Model(&model.Verification{}).
 		Where("status = ? AND completed_at IS NOT NULL", model.VerificationStatusCompleted).
-		Select("AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) * interval '1 second')").
-		Row().Scan(&avgTime)
+		Select("AVG(EXTRACT(EPOCH FROM (completed_at - created_at)))").
+		Row().Scan(&avgProcessingTime)
 	if err != nil {
 		return nil, err
 	}
-	stats.AverageProcessingTime = avgTime
+	stats.AverageProcessingTime = time.Duration(avgProcessingTime) * time.Second
 
 	return &stats, nil
 }
 
 // GetSummary retrieves verification summary
-func (r *VerificationRepository) GetSummary(documentID uuid.UUID) (*model.VerificationSummary, error) {
+func (r *VerificationRepository) GetSummary(ctx context.Context, documentID uuid.UUID) (*model.VerificationSummary, error) {
 	var verification model.Verification
-	err := r.db.Where("document_id = ?", documentID).Order("created_at DESC").First(&verification).Error
+	err := r.db.WithContext(ctx).Where("document_id = ?", documentID).Order("created_at DESC").First(&verification).Error
 	if err != nil {
 		return nil, err
 	}
@@ -152,9 +162,9 @@ func (r *VerificationRepository) GetSummary(documentID uuid.UUID) (*model.Verifi
 }
 
 // GetExpired retrieves expired verifications
-func (r *VerificationRepository) GetExpired() ([]*model.Verification, error) {
+func (r *VerificationRepository) GetExpired(ctx context.Context) ([]*model.Verification, error) {
 	var verifications []*model.Verification
-	err := r.db.Where("expires_at <= ? AND status != ?", time.Now(), model.VerificationStatusExpired).Find(&verifications).Error
+	err := r.db.WithContext(ctx).Where("expires_at <= ? AND status != ?", time.Now(), model.VerificationStatusExpired).Find(&verifications).Error
 	if err != nil {
 		return nil, err
 	}
@@ -162,9 +172,9 @@ func (r *VerificationRepository) GetExpired() ([]*model.Verification, error) {
 }
 
 // GetPending retrieves pending verifications
-func (r *VerificationRepository) GetPending() ([]*model.Verification, error) {
+func (r *VerificationRepository) GetPending(ctx context.Context) ([]*model.Verification, error) {
 	var verifications []*model.Verification
-	err := r.db.Where("status = ?", model.VerificationStatusPending).Find(&verifications).Error
+	err := r.db.WithContext(ctx).Where("status = ?", model.VerificationStatusPending).Find(&verifications).Error
 	if err != nil {
 		return nil, err
 	}
@@ -172,11 +182,11 @@ func (r *VerificationRepository) GetPending() ([]*model.Verification, error) {
 }
 
 // GetByVerifier retrieves all verifications done by a specific verifier
-func (r *VerificationRepository) GetByVerifier(verifierID uuid.UUID, page, pageSize int) ([]*model.Verification, int64, error) {
+func (r *VerificationRepository) GetByVerifier(ctx context.Context, verifierID uuid.UUID, page, pageSize int) ([]*model.Verification, int64, error) {
 	var verifications []*model.Verification
 	var total int64
 
-	query := r.db.Model(&model.Verification{}).Where("verifier_id = ?", verifierID)
+	query := r.db.WithContext(ctx).Model(&model.Verification{}).Where("verifier_id = ?", verifierID)
 
 	// Get total count
 	err := query.Count(&total).Error
@@ -194,11 +204,11 @@ func (r *VerificationRepository) GetByVerifier(verifierID uuid.UUID, page, pageS
 }
 
 // GetByMethod retrieves verifications by method
-func (r *VerificationRepository) GetByMethod(method model.VerificationMethod, page, pageSize int) ([]*model.Verification, int64, error) {
+func (r *VerificationRepository) GetByMethod(ctx context.Context, method model.VerificationMethod, page, pageSize int) ([]*model.Verification, int64, error) {
 	var verifications []*model.Verification
 	var total int64
 
-	query := r.db.Model(&model.Verification{}).Where("method = ?", method)
+	query := r.db.WithContext(ctx).Model(&model.Verification{}).Where("method = ?", method)
 
 	// Get total count
 	err := query.Count(&total).Error
@@ -216,11 +226,11 @@ func (r *VerificationRepository) GetByMethod(method model.VerificationMethod, pa
 }
 
 // GetByDateRange retrieves verifications within a date range
-func (r *VerificationRepository) GetByDateRange(startDate, endDate time.Time, page, pageSize int) ([]*model.Verification, int64, error) {
+func (r *VerificationRepository) GetByDateRange(ctx context.Context, startDate, endDate time.Time, page, pageSize int) ([]*model.Verification, int64, error) {
 	var verifications []*model.Verification
 	var total int64
 
-	query := r.db.Model(&model.Verification{}).
+	query := r.db.WithContext(ctx).Model(&model.Verification{}).
 		Where("created_at BETWEEN ? AND ?", startDate, endDate)
 
 	// Get total count
@@ -239,9 +249,9 @@ func (r *VerificationRepository) GetByDateRange(startDate, endDate time.Time, pa
 }
 
 // GetFailed retrieves all failed verifications
-func (r *VerificationRepository) GetFailed() ([]*model.Verification, error) {
+func (r *VerificationRepository) GetFailed(ctx context.Context) ([]*model.Verification, error) {
 	var verifications []*model.Verification
-	err := r.db.Where("status = ?", model.VerificationStatusFailed).Find(&verifications).Error
+	err := r.db.WithContext(ctx).Where("status = ?", model.VerificationStatusFailed).Find(&verifications).Error
 	if err != nil {
 		return nil, err
 	}
@@ -303,4 +313,136 @@ func (r *VerificationRepository) GetVerificationStats(ctx context.Context) (map[
 		"rejection_rate":           stats.RejectionRate,
 		"verifications_by_method":  stats.VerificationsByMethod,
 	}, nil
+}
+
+// List retrieves verifications with pagination
+func (r *VerificationRepository) List(ctx context.Context, page, pageSize int) ([]*model.Verification, int64, error) {
+	var verifications []*model.Verification
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.Verification{})
+
+	// Get total count
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	err = query.Offset((page - 1) * pageSize).Limit(pageSize).Find(&verifications).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return verifications, total, nil
+}
+
+// GetByStatus retrieves verifications by status with pagination
+func (r *VerificationRepository) GetByStatus(ctx context.Context, status model.VerificationStatus, page, pageSize int) ([]*model.Verification, int64, error) {
+	var verifications []*model.Verification
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.Verification{}).Where("status = ?", status)
+
+	// Get total count
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	err = query.Offset((page - 1) * pageSize).Limit(pageSize).Find(&verifications).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return verifications, total, nil
+}
+
+// GetByUserID retrieves verifications for a specific user with pagination
+func (r *VerificationRepository) GetByUserID(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]*model.Verification, int64, error) {
+	var verifications []*model.Verification
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.Verification{}).Where("user_id = ?", userID)
+
+	// Get total count
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	err = query.Offset((page - 1) * pageSize).Limit(pageSize).Find(&verifications).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return verifications, total, nil
+}
+
+// GetDocumentVerifications retrieves verifications for a specific document with pagination
+func (r *VerificationRepository) GetDocumentVerifications(ctx context.Context, documentID uuid.UUID, page, pageSize int) ([]*model.Verification, int64, error) {
+	var verifications []*model.Verification
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.Verification{}).Where("document_id = ?", documentID)
+
+	// Get total count
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	err = query.Offset((page - 1) * pageSize).Limit(pageSize).Find(&verifications).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return verifications, total, nil
+}
+
+// GetByKYCID retrieves verifications for a specific KYC ID with pagination
+func (r *VerificationRepository) GetByKYCID(ctx context.Context, kycID uuid.UUID, page, pageSize int) ([]*model.Verification, int64, error) {
+	var verifications []*model.Verification
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.Verification{}).Where("kyc_id = ?", kycID)
+
+	// Get total count
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	err = query.Offset((page - 1) * pageSize).Limit(pageSize).Find(&verifications).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return verifications, total, nil
+}
+
+// GetByMethod retrieves verifications by method with pagination
+func (r *VerificationRepository) GetByMethod(ctx context.Context, method model.VerificationMethod, page, pageSize int) ([]*model.Verification, int64, error) {
+	var verifications []*model.Verification
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.Verification{}).Where("method = ?", method)
+
+	// Get total count
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	err = query.Offset((page - 1) * pageSize).Limit(pageSize).Find(&verifications).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return verifications, total, nil
 }

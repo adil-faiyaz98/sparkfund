@@ -2,227 +2,346 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"math/rand/v2"
 	"time"
 
-	"github.com/google/uuid"
-
-	"sparkfund/services/kyc-service/internal/ai"
-	"sparkfund/services/kyc-service/internal/models"
+	"sparkfund/services/kyc-service/internal/domain"
+	"sparkfund/services/kyc-service/internal/mapper"
+	"sparkfund/services/kyc-service/internal/model"
 	"sparkfund/services/kyc-service/internal/repository"
+
+	"github.com/google/uuid"
 )
 
 // KYCService handles business logic for KYC operations
 type KYCService struct {
-	kycRepo    *repository.KYCRepository
-	docRepo    *repository.DocumentRepository
-	fraudModel ai.FraudModel
+	kycRepo         *repository.KYCRepository
+	docRepo         *repository.DocumentRepository
+	verRepo         *repository.VerificationRepository
+	eventPublisher  EventPublisher
 }
 
-// NewKYCService creates a new KYC service instance
-func NewKYCService(
-	kycRepo *repository.KYCRepository,
-	docRepo *repository.DocumentRepository,
-	fraudModel ai.FraudModel,
-) *KYCService {
+// EventPublisher defines the interface for publishing events
+type EventPublisher interface {
+	Publish(ctx context.Context, eventType string, payload interface{}) error
+}
+
+// NewKYCService creates a new KYC service
+func NewKYCService(kycRepo *repository.KYCRepository, docRepo *repository.DocumentRepository, verRepo *repository.VerificationRepository, eventPublisher EventPublisher) *KYCService {
 	return &KYCService{
-		kycRepo:    kycRepo,
-		docRepo:    docRepo,
-		fraudModel: fraudModel,
+		kycRepo:        kycRepo,
+		docRepo:        docRepo,
+		verRepo:        verRepo,
+		eventPublisher: eventPublisher,
 	}
 }
 
-// Placeholder function for fraud detection
-func (s *KYCService) checkFraud(kyc *models.KYC) (float64, error) {
-	// TODO: Replace with actual AI model integration
-	// This is a placeholder that returns a random fraud score
-	return rand.Float64(), nil
-}
-
-// Placeholder function for sanctions list screening
-func (s *KYCService) checkSanctions(kyc *models.KYC) (bool, error) {
-	// TODO: Replace with actual sanctions list screening API integration
-	// This is a placeholder that always returns false (no match)
-	return false, nil
-
-}
-
-// CreateKYC creates a new KYC verification request
-func (s *KYCService) CreateKYC(ctx context.Context, userID uuid.UUID, data *models.KYCVerification) (*models.KYCVerification, error) {
-	// Get user's document
-	doc, err := s.docRepo.GetByUserID(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user document: %w", err)
-	}
-	if doc == nil {
-		return nil, fmt.Errorf("no document found for user %s", userID)
-	}
-
-	// Prepare fraud detection features
-	features := ai.FraudFeatures{
-		TransactionAmount:    data.TransactionAmount,
-		TransactionTime:      time.Now(),
-		TransactionFrequency: 1, // This should be calculated from user's history
-		UserAge:              calculateAge(data.DateOfBirth),
-		AccountAge:           0,   // This should be calculated from user's account creation date
-		PreviousFraudReports: 0,   // This should be fetched from user's history
-		DocumentQuality:      0.8, // This should be calculated from document verification
-		DocumentAge:          calculateDocumentAge(doc.IssueDate),
-		DocumentType:         string(doc.Type), // Convert DocumentType to string
-		CountryRiskScore:     0.5,              // This should be fetched from a risk database
-		IPRiskScore:          0.5,              // This should be calculated from IP analysis
-		LoginAttempts:        1,                // This should be fetched from auth service
-		FailedLogins:         0,                // This should be fetched from auth service
-		LastLoginTime:        time.Now(),       // This should be fetched from auth service
-		PEPStatus:            false,            // This should be fetched from PEP database
-		SanctionStatus:       false,            // This should be fetched from sanctions database
-		WatchlistStatus:      false,            // This should be fetched from watchlist database
-	}
-
-	// Get fraud prediction
-	prediction, err := s.fraudModel.Predict(features)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get fraud prediction: %w", err)
-	}
-
-	// Update KYC data with fraud detection results
-	data.RiskLevel = string(prediction.RiskLevel)
-	data.RiskScore = int(prediction.RiskScore)
-	data.Notes = prediction.Explanation
-
-	// Set initial status based on risk level
-	switch prediction.RiskLevel {
-	case ai.FraudRiskLow:
-		data.Status = "PENDING"
-	case ai.FraudRiskMedium:
-		data.Status = "IN_REVIEW"
-	case ai.FraudRiskHigh:
-		data.Status = "FLAGGED"
-	}
-
+// CreateKYC creates a new KYC verification
+func (s *KYCService) CreateKYC(ctx context.Context, userID uuid.UUID, request *model.KYCRequest) (*domain.EnhancedKYC, error) {
 	// Create KYC record
-	if err := s.kycRepo.Create(ctx, data); err != nil {
+	kyc := &model.KYC{
+		ID:                uuid.New(),
+		UserID:            userID,
+		FirstName:         request.FirstName,
+		LastName:          request.LastName,
+		DateOfBirth:       request.DateOfBirth,
+		Nationality:       request.Nationality,
+		Email:             request.Email,
+		PhoneNumber:       request.PhoneNumber,
+		Address:           request.Address,
+		City:              request.City,
+		State:             request.State,
+		Country:           request.Country,
+		PostalCode:        request.PostalCode,
+		DocumentType:      request.DocumentType,
+		DocumentNumber:    request.DocumentNumber,
+		DocumentFront:     request.DocumentFront,
+		DocumentBack:      request.DocumentBack,
+		SelfieImage:       request.SelfieImage,
+		Status:            model.KYCStatusPending,
+		RiskLevel:         model.RiskLevelMedium,
+		RiskScore:         50.0,
+		TransactionAmount: request.TransactionAmount,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+
+	// Parse document expiry if provided
+	if request.DocumentExpiry != "" {
+		expiry, err := time.Parse("2006-01-02", request.DocumentExpiry)
+		if err == nil {
+			kyc.DocumentExpiry = &expiry
+		}
+	}
+
+	// Save KYC record
+	if err := s.kycRepo.Create(ctx, kyc); err != nil {
 		return nil, fmt.Errorf("failed to create KYC record: %w", err)
 	}
 
-	return data, nil
+	// Convert to domain model
+	domainKYC := mapper.KYCModelToDomain(kyc)
+
+	// Publish event
+	if err := s.eventPublisher.Publish(ctx, "kyc.created", domainKYC); err != nil {
+		// Log error but don't fail the request
+		fmt.Printf("Failed to publish kyc.created event: %v\n", err)
+	}
+
+	return domainKYC, nil
 }
 
-// GetKYC retrieves a KYC verification by user ID
-func (s *KYCService) GetKYC(ctx context.Context, userID uuid.UUID) (*models.KYCVerification, error) {
-	return s.kycRepo.GetByUserID(ctx, userID)
-}
-
-// UpdateKYC updates an existing KYC verification
-func (s *KYCService) UpdateKYC(ctx context.Context, userID uuid.UUID, data *models.KYCVerification) error {
-	// Get existing KYC record
-	existing, err := s.kycRepo.GetByUserID(ctx, userID)
+// GetKYC retrieves a KYC verification by ID
+func (s *KYCService) GetKYC(ctx context.Context, id uuid.UUID) (*domain.EnhancedKYC, error) {
+	kyc, err := s.kycRepo.GetByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to get existing KYC record: %w", err)
+		return nil, err
 	}
 
-	// Update fields
-	existing.FirstName = data.FirstName
-	existing.LastName = data.LastName
-	existing.DateOfBirth = data.DateOfBirth
-	existing.Address = data.Address
-	existing.City = data.City
-	existing.Country = data.Country
-	existing.PostalCode = data.PostalCode
-	existing.PhoneNumber = data.PhoneNumber
-	existing.Email = data.Email
-
-	// Update KYC record
-	if err := s.kycRepo.Update(ctx, existing); err != nil {
-		return fmt.Errorf("failed to update KYC record: %w", err)
+	// Get documents for this KYC
+	documents, err := s.docRepo.GetByUserID(ctx, kyc.UserID)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	// Get verifications for this KYC
+	verifications, err := s.verRepo.GetByKYCID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to domain model
+	domainKYC := mapper.KYCModelToDomain(kyc)
+
+	// Add documents and verifications
+	if documents != nil {
+		domainKYC.Documents = mapper.DocumentModelsToDomains([]*model.Document{documents})
+	}
+
+	if verifications != nil {
+		domainKYC.Verifications = mapper.VerificationModelsToDomains(verifications)
+	}
+
+	return domainKYC, nil
+}
+
+// GetKYCByUserID retrieves a KYC verification by user ID
+func (s *KYCService) GetKYCByUserID(ctx context.Context, userID uuid.UUID) (*domain.EnhancedKYC, error) {
+	kyc, err := s.kycRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get documents for this user
+	documents, err := s.docRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get verifications for this KYC
+	verifications, err := s.verRepo.GetByKYCID(ctx, kyc.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to domain model
+	domainKYC := mapper.KYCModelToDomain(kyc)
+
+	// Add documents and verifications
+	if documents != nil {
+		domainKYC.Documents = mapper.DocumentModelsToDomains([]*model.Document{documents})
+	}
+
+	if verifications != nil {
+		domainKYC.Verifications = mapper.VerificationModelsToDomains(verifications)
+	}
+
+	return domainKYC, nil
 }
 
 // UpdateKYCStatus updates the status of a KYC verification
-func (s *KYCService) UpdateKYCStatus(ctx context.Context, userID uuid.UUID, status string, notes string) error {
-	return s.kycRepo.UpdateStatus(ctx, userID, status, notes)
-}
+func (s *KYCService) UpdateKYCStatus(ctx context.Context, id uuid.UUID, status domain.KYCStatus, notes string, reviewerID uuid.UUID) error {
+	// Get existing KYC
+	kyc, err := s.kycRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
 
-// ListKYC retrieves KYC verifications with pagination and filtering
-func (s *KYCService) ListKYC(ctx context.Context, status string, page, pageSize int) ([]models.KYCVerification, int64, error) {
-	return s.kycRepo.List(ctx, status, page, pageSize)
-}
+	// Update status
+	kyc.Status = model.KYCStatus(status)
+	kyc.Notes = notes
+	kyc.ReviewedBy = &reviewerID
+	kyc.ReviewedAt = &time.Time{}
+	*kyc.ReviewedAt = time.Now()
+	kyc.UpdatedAt = time.Now()
 
-// DeleteKYC soft deletes a KYC verification
-func (s *KYCService) DeleteKYC(ctx context.Context, userID uuid.UUID) error {
-	return s.kycRepo.Delete(ctx, userID)
-}
+	if status == domain.KYCStatusVerified || status == domain.KYCStatusApproved {
+		now := time.Now()
+		kyc.CompletedAt = &now
+	}
 
-// validateKYC validates the required fields of a KYC record
-func (s *KYCService) validateKYC(kyc *models.KYC) error {
-	if kyc.UserID == "" {
-		return fmt.Errorf("user ID is required")
+	// Save KYC
+	if err := s.kycRepo.Update(ctx, kyc); err != nil {
+		return fmt.Errorf("failed to update KYC status: %w", err)
 	}
-	if kyc.DocumentType == "" {
-		return fmt.Errorf("document type is required")
+
+	// Create review record
+	review := &model.KYCReview{
+		ID:         uuid.New(),
+		KYCID:      id,
+		ReviewerID: reviewerID,
+		Status:     string(status),
+		Reason:     notes,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
-	if kyc.DocumentNumber == "" {
-		return fmt.Errorf("document number is required")
+
+	if err := s.kycRepo.CreateReview(ctx, review); err != nil {
+		return fmt.Errorf("failed to create KYC review: %w", err)
 	}
-	if kyc.DocumentURL == "" {
-		return fmt.Errorf("document URL is required")
+
+	// Publish event
+	domainKYC := mapper.KYCModelToDomain(kyc)
+	if err := s.eventPublisher.Publish(ctx, "kyc.status_updated", domainKYC); err != nil {
+		// Log error but don't fail the request
+		fmt.Printf("Failed to publish kyc.status_updated event: %v\n", err)
 	}
-	if kyc.FirstName == "" {
-		return fmt.Errorf("first name is required")
-	}
-	if kyc.LastName == "" {
-		return fmt.Errorf("last name is required")
-	}
-	if kyc.DateOfBirth.IsZero() {
-		return fmt.Errorf("date of birth is required")
-	}
-	if kyc.Address == "" {
-		return fmt.Errorf("address is required")
-	}
-	if kyc.City == "" {
-		return fmt.Errorf("city is required")
-	}
-	if kyc.Country == "" {
-		return fmt.Errorf("country is required")
-	}
-	if kyc.PostalCode == "" {
-		return fmt.Errorf("postal code is required")
-	}
-	if kyc.PhoneNumber == "" {
-		return fmt.Errorf("phone number is required")
-	}
-	if kyc.Email == "" {
-		return fmt.Errorf("email is required")
-	}
+
 	return nil
 }
 
-// isValidStatus checks if a given status is valid
-func isValidStatus(status string) bool {
-	validStatuses := map[string]bool{
-		"pending":   true,
-		"approved":  true,
-		"rejected":  true,
-		"reviewing": true,
+// UpdateKYCRiskLevel updates the risk level of a KYC verification
+func (s *KYCService) UpdateKYCRiskLevel(ctx context.Context, id uuid.UUID, riskLevel domain.RiskLevel, riskScore float64, notes string, reviewerID uuid.UUID) error {
+	// Get existing KYC
+	kyc, err := s.kycRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
 	}
-	return validStatuses[status]
+
+	// Update risk level
+	kyc.RiskLevel = model.RiskLevel(riskLevel)
+	kyc.RiskScore = riskScore
+	kyc.Notes = notes
+	kyc.ReviewedBy = &reviewerID
+	kyc.ReviewedAt = &time.Time{}
+	*kyc.ReviewedAt = time.Now()
+	kyc.UpdatedAt = time.Now()
+
+	// Save KYC
+	if err := s.kycRepo.Update(ctx, kyc); err != nil {
+		return fmt.Errorf("failed to update KYC risk level: %w", err)
+	}
+
+	// Create review record
+	review := &model.KYCReview{
+		ID:             uuid.New(),
+		KYCID:          id,
+		ReviewerID:     reviewerID,
+		Status:         "RISK_UPDATED",
+		RiskAssessment: fmt.Sprintf("Risk level updated to %s with score %.2f", riskLevel, riskScore),
+		Notes:          notes,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+
+	if err := s.kycRepo.CreateReview(ctx, review); err != nil {
+		return fmt.Errorf("failed to create KYC review: %w", err)
+	}
+
+	// Publish event
+	domainKYC := mapper.KYCModelToDomain(kyc)
+	if err := s.eventPublisher.Publish(ctx, "kyc.risk_updated", domainKYC); err != nil {
+		// Log error but don't fail the request
+		fmt.Printf("Failed to publish kyc.risk_updated event: %v\n", err)
+	}
+
+	return nil
 }
 
-// Helper functions
-func calculateAge(dateOfBirth time.Time) int {
-	now := time.Now()
-	years := now.Year() - dateOfBirth.Year()
-	if now.Month() < dateOfBirth.Month() || (now.Month() == dateOfBirth.Month() && now.Day() < dateOfBirth.Day()) {
-		years--
+// ListKYCs retrieves KYC verifications with pagination
+func (s *KYCService) ListKYCs(ctx context.Context, page, pageSize int) ([]*domain.EnhancedKYC, int64, error) {
+	kycs, total, err := s.kycRepo.List(ctx, page, pageSize)
+	if err != nil {
+		return nil, 0, err
 	}
-	return years
+
+	return mapper.KYCModelsToDomains(kycs), total, nil
 }
 
-func calculateDocumentAge(issueDate time.Time) int {
-	now := time.Now()
-	days := int(now.Sub(issueDate).Hours() / 24)
-	return days
+// GetKYCsByStatus retrieves KYC verifications by status with pagination
+func (s *KYCService) GetKYCsByStatus(ctx context.Context, status domain.KYCStatus, page, pageSize int) ([]*domain.EnhancedKYC, int64, error) {
+	kycs, total, err := s.kycRepo.GetByStatus(ctx, model.KYCStatus(status), page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return mapper.KYCModelsToDomains(kycs), total, nil
+}
+
+// GetKYCsByRiskLevel retrieves KYC verifications by risk level with pagination
+func (s *KYCService) GetKYCsByRiskLevel(ctx context.Context, riskLevel domain.RiskLevel, page, pageSize int) ([]*domain.EnhancedKYC, int64, error) {
+	kycs, total, err := s.kycRepo.GetByRiskLevel(ctx, model.RiskLevel(riskLevel), page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return mapper.KYCModelsToDomains(kycs), total, nil
+}
+
+// ValidateKYC validates a KYC verification
+func (s *KYCService) ValidateKYC(kyc *domain.EnhancedKYC) error {
+	if kyc.UserID == uuid.Nil {
+		return errors.New("user ID is required")
+	}
+
+	if kyc.FirstName == "" {
+		return errors.New("first name is required")
+	}
+
+	if kyc.LastName == "" {
+		return errors.New("last name is required")
+	}
+
+	if kyc.DateOfBirth == "" {
+		return errors.New("date of birth is required")
+	}
+
+	if kyc.Address == "" {
+		return errors.New("address is required")
+	}
+
+	if kyc.City == "" {
+		return errors.New("city is required")
+	}
+
+	if kyc.Country == "" {
+		return errors.New("country is required")
+	}
+
+	if kyc.PostalCode == "" {
+		return errors.New("postal code is required")
+	}
+
+	if kyc.DocumentType == "" {
+		return errors.New("document type is required")
+	}
+
+	if kyc.DocumentNumber == "" {
+		return errors.New("document number is required")
+	}
+
+	if kyc.DocumentFront == "" {
+		return errors.New("document front is required")
+	}
+
+	if kyc.DocumentBack == "" {
+		return errors.New("document back is required")
+	}
+
+	if kyc.SelfieImage == "" {
+		return errors.New("selfie image is required")
+	}
+
+	return nil
 }

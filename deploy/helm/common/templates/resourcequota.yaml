@@ -1,0 +1,45 @@
+{{- define "common.resourcequota" -}}
+{{- if .Values.resourceQuota.enabled -}}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "common.fullname" . }}-quota
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  hard:
+    {{- if .Values.resourceQuota.pods }}
+    pods: {{ .Values.resourceQuota.pods | quote }}
+    {{- end }}
+    {{- if .Values.resourceQuota.requests.cpu }}
+    requests.cpu: {{ .Values.resourceQuota.requests.cpu }}
+    {{- end }}
+    {{- if .Values.resourceQuota.requests.memory }}
+    requests.memory: {{ .Values.resourceQuota.requests.memory }}
+    {{- end }}
+    {{- if .Values.resourceQuota.limits.cpu }}
+    limits.cpu: {{ .Values.resourceQuota.limits.cpu }}
+    {{- end }}
+    {{- if .Values.resourceQuota.limits.memory }}
+    limits.memory: {{ .Values.resourceQuota.limits.memory }}
+    {{- end }}
+    {{- if .Values.resourceQuota.persistentVolumeClaims }}
+    persistentvolumeclaims: {{ .Values.resourceQuota.persistentVolumeClaims | quote }}
+    {{- end }}
+    {{- if .Values.resourceQuota.services }}
+    services: {{ .Values.resourceQuota.services | quote }}
+    {{- end }}
+    {{- if .Values.resourceQuota.servicesLoadBalancers }}
+    services.loadbalancers: {{ .Values.resourceQuota.servicesLoadBalancers | quote }}
+    {{- end }}
+    {{- if .Values.resourceQuota.servicesNodePorts }}
+    services.nodeports: {{ .Values.resourceQuota.servicesNodePorts | quote }}
+    {{- end }}
+    {{- if .Values.resourceQuota.configMaps }}
+    configmaps: {{ .Values.resourceQuota.configMaps | quote }}
+    {{- end }}
+    {{- if .Values.resourceQuota.secrets }}
+    secrets: {{ .Values.resourceQuota.secrets | quote }}
+    {{- end }}
+{{- end }}
+{{- end -}}

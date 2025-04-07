@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-config
+  namespace: sparkfund
+data:
+  config.production.yaml: |
+    app:
+      name: "user-service"
+      version: "1.0.0"
+      environment: "production"
+
+    server:
+      host: "0.0.0.0"
+      port: 8084
+      read_timeout: 5s
+      write_timeout: 10s
+      idle_timeout: 120s
+      shutdown_timeout: 30s
+      trusted_proxies:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+
+    metrics:
+      enabled: true
+      path: /metrics
+      port: 9090
+
+    log:
+      level: info
+      format: json
+      output: stdout
+      request_log: true
+
+    security:
+      allowed_origins:
+        - https://sparkfund.com
+        - https://app.sparkfund.com
+      enable_csrf: true
+      audit_logging:
+        enabled: true
+        log_retention: "90d"
+
+    feature:
+      enable_swagger: true
+      enable_auth: true
+      enable_metrics: true
+
+    tracing:
+      enabled: true
+      service_name: user-service
+      sampling_rate: 0.1

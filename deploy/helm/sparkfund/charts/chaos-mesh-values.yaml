@@ -1,0 +1,182 @@
+# Chaos Mesh Helm chart values for SparkFund
+# Global settings
+global:
+  # Namespace to install Chaos Mesh
+  namespace: chaos-mesh
+  
+  # Node selector for Chaos Mesh components
+  nodeSelector: {}
+  
+  # Tolerations for Chaos Mesh components
+  tolerations: []
+  
+  # Labels for Chaos Mesh components
+  labels: {}
+
+# Chaos Mesh controller configuration
+controllerManager:
+  # Replicas for the controller
+  replicaCount: 1
+  
+  # Resources for the controller
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  # Service account for the controller
+  serviceAccount: chaos-controller-manager
+  
+  # Security context for the controller
+  securityContext:
+    runAsUser: 65532
+    runAsGroup: 65532
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+  
+  # Pod security context for the controller
+  podSecurityContext:
+    runAsUser: 65532
+    runAsGroup: 65532
+    runAsNonRoot: true
+    fsGroup: 65532
+  
+  # Metrics for the controller
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  
+  # Webhook configuration
+  webhook:
+    enabled: true
+    CRDS:
+      - PodChaos
+      - NetworkChaos
+      - IOChaos
+      - TimeChaos
+      - StressChaos
+      - DNSChaos
+      - HTTPChaos
+      - JVMChaos
+      - KernelChaos
+      - AWSChaos
+      - GCPChaos
+      - BlockChaos
+      - PhysicalMachineChaos
+      - PhysicalMachineChaos
+      - AzureChaos
+      - Schedule
+      - Workflow
+      - WorkflowNode
+
+# Chaos daemon configuration
+chaosDaemon:
+  # Resources for the daemon
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  # Security context for the daemon
+  securityContext:
+    privileged: true
+  
+  # Runtime for the daemon
+  runtime: containerd
+  
+  # Socket path for the daemon
+  socketPath: /run/containerd/containerd.sock
+
+# Dashboard configuration
+dashboard:
+  # Enable the dashboard
+  enabled: true
+  
+  # Service type for the dashboard
+  serviceType: ClusterIP
+  
+  # Resources for the dashboard
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  # Security context for the dashboard
+  securityContext:
+    runAsUser: 65532
+    runAsGroup: 65532
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+  
+  # Pod security context for the dashboard
+  podSecurityContext:
+    runAsUser: 65532
+    runAsGroup: 65532
+    runAsNonRoot: true
+    fsGroup: 65532
+  
+  # Ingress for the dashboard
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: chaos-mesh.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: chaos-mesh-tls
+        hosts:
+          - chaos-mesh.sparkfund.com
+
+# DNS service configuration
+dnsServer:
+  # Enable the DNS service
+  enabled: true
+  
+  # Resources for the DNS service
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Prometheus configuration
+prometheus:
+  # Enable Prometheus
+  enabled: false  # We already have Prometheus installed
+
+# Grafana configuration
+grafana:
+  # Enable Grafana
+  enabled: false  # We already have Grafana installed
+
+# RBAC configuration
+rbac:
+  # Create RBAC resources
+  create: true

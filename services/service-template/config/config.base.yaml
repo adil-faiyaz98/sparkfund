@@ -1,0 +1,43 @@
+app:
+  name: "service-template"
+  version: "1.0.0"
+  environment: "development"
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 5s
+  write_timeout: 10s
+  idle_timeout: 120s
+  shutdown_timeout: 30s
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "postgres"
+  name: "service_template"
+  sslmode: "disable"
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 1h
+
+log:
+  level: "info"
+  format: "json"
+  output: "stdout"
+
+jwt:
+  secret: "your-secret-key"
+  expiry: 24h
+  refresh: 168h
+
+cache:
+  enabled: true
+  type: "memory"
+  ttl: 5m
+  redis:
+    host: "localhost"
+    port: 6379
+    password: ""
+    db: 0

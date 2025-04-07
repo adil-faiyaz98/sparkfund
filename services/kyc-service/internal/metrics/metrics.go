@@ -1,72 +1,92 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	// KYCOperations tracks the number of KYC operations
-	KYCOperations = prometheus.NewCounterVec(
+	// HTTP metrics
+	RequestCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "kyc_operations_total",
-			Help: "Total number of KYC operations by type",
-		},
-		[]string{"operation", "status"},
-	)
-
-	// KYCOperationDuration tracks the duration of KYC operations
-	KYCOperationDuration = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "kyc_operation_duration_seconds",
-			Help:    "Duration of KYC operations in seconds",
-			Buckets: prometheus.DefBuckets,
-		},
-		[]string{"operation"},
-	)
-
-	// KYCStatusCount tracks the number of KYC records by status
-	KYCStatusCount = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "kyc_status_count",
-			Help: "Number of KYC records by status",
-		},
-		[]string{"status"},
-	)
-
-	// DatabaseErrors tracks database operation errors
-	DatabaseErrors = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "kyc_database_errors_total",
-			Help: "Total number of database errors",
-		},
-		[]string{"operation"},
-	)
-
-	// HTTPRequests tracks HTTP requests
-	HTTPRequests = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "kyc_http_requests_total",
+			Name: "http_requests_total",
 			Help: "Total number of HTTP requests",
 		},
 		[]string{"method", "endpoint", "status"},
 	)
 
-	// HTTPRequestDuration tracks HTTP request duration
-	HTTPRequestDuration = prometheus.NewHistogramVec(
+	RequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "kyc_http_request_duration_seconds",
-			Help:    "Duration of HTTP requests in seconds",
-			Buckets: prometheus.DefBuckets,
+			Name:    "http_request_duration_seconds",
+			Help:    "Duration of HTTP requests",
+			Buckets: []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 		},
 		[]string{"method", "endpoint"},
 	)
+
+	// Business metrics
+	KYCVerifications = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kyc_verifications_total",
+			Help: "Total number of KYC verifications",
+		},
+		[]string{"status", "type"},
+	)
+
+	DocumentUploads = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "document_uploads_total",
+			Help: "Total number of document uploads",
+		},
+		[]string{"type", "status"},
+	)
+
+	VerificationDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "verification_duration_seconds",
+			Help:    "Time taken to complete verifications",
+			Buckets: []float64{1, 5, 10, 30, 60, 120, 300, 600},
+		},
+		[]string{"type"},
+	)
+
+	ErrorCounter = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "errors_total",
+			Help: "Total number of errors",
+		},
+		[]string{"type", "code"},
+	)
 )
 
-func init() {
-	prometheus.MustRegister(KYCOperations)
-	prometheus.MustRegister(KYCOperationDuration)
-	prometheus.MustRegister(KYCStatusCount)
-	prometheus.MustRegister(DatabaseErrors)
-	prometheus.MustRegister(HTTPRequests)
-	prometheus.MustRegister(HTTPRequestDuration)
-} 
+// MetricsService handles all metrics operations
+type MetricsService struct{}
+
+func NewMetricsService() *MetricsService {
+	return &MetricsService{}
+}
+
+// HTTP metrics
+func (s *MetricsService) RecordRequest(method, endpoint, status string, duration float64) {
+	RequestCounter.WithLabelValues(method, endpoint, status).Inc()
+	RequestDuration.WithLabelValues(method, endpoint).Observe(duration)
+}
+
+// Business metrics
+func (s *MetricsService) RecordKYCVerification(status, verType string) {
+	KYCVerifications.WithLabelValues(status, verType).Inc()
+}
+
+func (s *MetricsService) RecordDocumentUpload(docType, status string) {
+	DocumentUploads.WithLabelValues(docType, status).Inc()
+}
+
+func (s *MetricsService) RecordVerificationDuration(verType string, duration time.Duration) {
+	VerificationDuration.WithLabelValues(verType).Observe(duration.Seconds())
+}
+
+func (s *MetricsService) RecordError(errorType, code string) {
+	ErrorCounter.WithLabelValues(errorType, code).Inc()
+}

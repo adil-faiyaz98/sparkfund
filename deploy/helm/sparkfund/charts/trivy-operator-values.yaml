@@ -1,0 +1,141 @@
+# Trivy Operator Helm chart values for SparkFund
+# Trivy Operator configuration
+trivy:
+  # Trivy image
+  image:
+    registry: ghcr.io
+    repository: aquasecurity/trivy
+    tag: 0.45.1
+  
+  # Trivy resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Trivy severity
+  severity: CRITICAL,HIGH,MEDIUM
+  
+  # Trivy ignore unfixed vulnerabilities
+  ignoreUnfixed: true
+  
+  # Trivy timeout
+  timeout: 10m0s
+  
+  # Trivy mode
+  mode: Standalone
+  
+  # Trivy server
+  server:
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+# Operator configuration
+operator:
+  # Operator replicas
+  replicas: 1
+  
+  # Operator resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Operator metrics
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  
+  # Operator webhook
+  webhook:
+    enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# Target namespaces
+targetNamespaces: "sparkfund-dev,sparkfund-staging,sparkfund-prod"
+
+# Config audit
+configAuditScannerEnabled: true
+
+# Vulnerability scanner
+vulnerabilityScannerEnabled: true
+
+# Exposed secrets scanner
+exposedSecretScannerEnabled: true
+
+# RBAC scanner
+rbacAssessmentScannerEnabled: true
+
+# Infrastructure scanner
+infraAssessmentScannerEnabled: true
+
+# Compliance scanner
+complianceScannerEnabled: true
+
+# Node collector
+nodeCollector:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Compliance
+compliance:
+  # Compliance specs
+  specs:
+    # NSA compliance
+    nsa:
+      enabled: true
+      version: "1.1"
+    
+    # PCI-DSS compliance
+    pci-dss:
+      enabled: true
+      version: "3.2.1"
+    
+    # CIS compliance
+    cis:
+      enabled: true
+      version: "1.23"
+    
+    # SOC2 compliance
+    soc2:
+      enabled: true
+      version: "1.0"
+
+# Service
+service:
+  type: ClusterIP
+
+# Metrics
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+# Webhook
+webhookTLS:
+  enabled: true
+  auto: true

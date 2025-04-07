@@ -1,0 +1,188 @@
+app:
+  name: "user-service"
+  version: "1.0.0"
+  environment: "development"
+
+server:
+  host: "0.0.0.0"
+  port: 8084
+  read_timeout: 5s
+  write_timeout: 10s
+  idle_timeout: 120s
+  shutdown_timeout: 30s
+  timeout: 30s
+  trusted_proxies:
+    - 127.0.0.1
+    - 172.16.0.0/12
+    - 172.17.0.0/16
+    - 192.168.0.0/16
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  name: user_service
+  sslmode: disable
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 1h
+  conn_max_idle_time: 10m
+
+jwt:
+  secret: "your-secret-key"
+  expiry: 24h
+  refresh: 168h
+  issuer: sparkfund
+  enabled: true
+
+rate_limit:
+  enabled: true
+  requests: 60
+  window: 1m
+  burst: 10
+
+metrics:
+  enabled: true
+  path: /metrics
+  port: 9090
+  push_interval: 10s
+
+log:
+  level: info
+  format: json
+  output: stdout
+  request_log: true
+
+circuit_breaker:
+  enabled: true
+  timeout: 30s
+  max_concurrent_requests: 100
+  error_threshold_percentage: 50
+  request_volume_threshold: 20
+  sleep_window: 5s
+
+security:
+  allowed_origins:
+    - "*"
+  allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed_headers:
+    - Content-Type
+    - Content-Length
+    - Accept-Encoding
+    - Authorization
+    - X-CSRF-Token
+  trusted_proxies:
+    - 127.0.0.1
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  enable_csrf: true
+  audit_logging:
+    enabled: true
+    log_retention: "90d"
+  access_control:
+    role_based: true
+    required_roles: ["user-admin", "user-operator"]
+
+feature:
+  enable_swagger: true
+  enable_auth: true
+  enable_metrics: true
+
+feature_flags:
+  mfa_verification: true
+  advanced_security: true
+  biometric_verification: false
+  document_encryption: true
+  audit_logging: true
+
+tracing:
+  enabled: true
+  service_name: user-service
+  sampling_rate: 0.1
+
+cache:
+  enabled: true
+  type: memory  # memory or redis
+  ttl: 5m
+  cleanup_interval: 10m
+  redis:
+    host: localhost
+    port: 6379
+    password: ""
+    db: 0
+    prefix: user:
+
+tls:
+  enabled: false
+  cert_file: ./certs/server.crt
+  key_file: ./certs/server.key
+  min_version: "1.2"
+
+mfa:
+  enabled: true
+  issuer: "SparkFund"
+  digits: 6
+  period: 30
+  algorithm: "SHA1"
+  qr_code_size: 200
+
+password:
+  min_length: 8
+  require_uppercase: true
+  require_lowercase: true
+  require_number: true
+  require_special: true
+  max_age_days: 90
+  history_count: 5
+  lockout_threshold: 5
+  lockout_duration: 15m
+
+session:
+  idle_timeout: 30m
+  absolute_timeout: 24h
+  refresh_threshold: 15m
+  cookie_secure: true
+  cookie_http_only: true
+  cookie_same_site: "lax"
+
+storage:
+  type: "local"
+  local:
+    path: "/data/users"
+  s3:
+    bucket: "user-profiles"
+    region: "us-east-1"
+
+notifications:
+  enabled: true
+  providers:
+    email:
+      smtp_host: "smtp.sparkfund.com"
+      smtp_port: 587
+      from_address: "noreply@sparkfund.com"
+    sms:
+      provider: "twilio"
+      from_number: ""
+
+monitoring:
+  tracing:
+    enabled: true
+    sampling_rate: 0.1
+  metrics:
+    enabled: true
+    push_interval: 10s
+  alerts:
+    enabled: true
+    channels: ["slack", "pagerduty"]
+
+events:
+  enabled: true
+  broker_type: "kafka"
+  broker_url: "localhost:9092"
+  topic_prefix: "user-"

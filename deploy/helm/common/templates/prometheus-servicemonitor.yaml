@@ -1,0 +1,33 @@
+{{- define "common.prometheus-servicemonitor" -}}
+{{- if .Values.metrics.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+    {{- if .Values.metrics.serviceMonitor.additionalLabels }}
+    {{- toYaml .Values.metrics.serviceMonitor.additionalLabels | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "common.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: metrics
+      path: {{ .Values.metrics.path | default "/metrics" }}
+      interval: {{ .Values.metrics.serviceMonitor.interval | default "30s" }}
+      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout | default "10s" }}
+      {{- if .Values.metrics.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml .Values.metrics.serviceMonitor.relabelings | nindent 8 }}
+      {{- end }}
+      {{- if .Values.metrics.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml .Values.metrics.serviceMonitor.metricRelabelings | nindent 8 }}
+      {{- end }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}
+{{- end -}}

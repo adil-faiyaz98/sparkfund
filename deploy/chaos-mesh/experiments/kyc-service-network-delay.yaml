@@ -1,0 +1,20 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: kyc-service-network-delay
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - sparkfund-prod
+    labelSelectors:
+      app.kubernetes.io/name: kyc-service
+  delay:
+    latency: "200ms"
+    correlation: "25"
+    jitter: "50ms"
+  duration: "300s"
+  scheduler:
+    cron: "0 0 * * 5"  # Every Friday at midnight

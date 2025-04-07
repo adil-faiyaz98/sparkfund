@@ -1,0 +1,20 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: kyc-service-memory-stress
+  namespace: chaos-mesh
+spec:
+  mode: one
+  selector:
+    namespaces:
+      - sparkfund-prod
+    labelSelectors:
+      app.kubernetes.io/name: kyc-service
+  stressors:
+    memory:
+      workers: 2
+      size: "256MB"
+      options: ["--vm-bytes", "256M", "--vm-keep"]
+  duration: "300s"
+  scheduler:
+    cron: "0 0 * * 1"  # Every Monday at midnight

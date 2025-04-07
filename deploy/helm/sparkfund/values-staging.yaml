@@ -1,0 +1,122 @@
+# Staging environment values for sparkfund.
+
+api-gateway:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 300m
+      memory: 384Mi
+    requests:
+      cpu: 150m
+      memory: 192Mi
+  ingress:
+    hosts:
+      - host: api.staging.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: api-gateway-tls
+        hosts:
+          - api.staging.sparkfund.com
+  env:
+    environment: staging
+    logLevel: info
+    logFormat: json
+
+kyc-service:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 300m
+      memory: 384Mi
+    requests:
+      cpu: 150m
+      memory: 192Mi
+  ingress:
+    hosts:
+      - host: kyc.staging.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: kyc-service-tls
+        hosts:
+          - kyc.staging.sparkfund.com
+  env:
+    environment: staging
+    logLevel: info
+    logFormat: json
+
+investment-service:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 300m
+      memory: 384Mi
+    requests:
+      cpu: 150m
+      memory: 192Mi
+  ingress:
+    hosts:
+      - host: investment.staging.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: investment-service-tls
+        hosts:
+          - investment.staging.sparkfund.com
+  env:
+    environment: staging
+    logLevel: info
+    logFormat: json
+
+user-service:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 300m
+      memory: 384Mi
+    requests:
+      cpu: 150m
+      memory: 192Mi
+  ingress:
+    hosts:
+      - host: user.staging.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: user-service-tls
+        hosts:
+          - user.staging.sparkfund.com
+  env:
+    environment: staging
+    logLevel: info
+    logFormat: json
+
+ai-service:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 1500m
+      memory: 3Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  ingress:
+    hosts:
+      - host: ai.staging.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: ai-service-tls
+        hosts:
+          - ai.staging.sparkfund.com
+  env:
+    - name: DEBUG
+      value: "False"
+    - name: LOG_LEVEL
+      value: "info"

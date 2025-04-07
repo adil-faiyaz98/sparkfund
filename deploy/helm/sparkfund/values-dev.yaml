@@ -1,0 +1,122 @@
+# Development environment values for sparkfund.
+
+api-gateway:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  ingress:
+    hosts:
+      - host: api.dev.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: api-gateway-tls
+        hosts:
+          - api.dev.sparkfund.com
+  env:
+    environment: development
+    logLevel: debug
+    logFormat: console
+
+kyc-service:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  ingress:
+    hosts:
+      - host: kyc.dev.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: kyc-service-tls
+        hosts:
+          - kyc.dev.sparkfund.com
+  env:
+    environment: development
+    logLevel: debug
+    logFormat: console
+
+investment-service:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  ingress:
+    hosts:
+      - host: investment.dev.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: investment-service-tls
+        hosts:
+          - investment.dev.sparkfund.com
+  env:
+    environment: development
+    logLevel: debug
+    logFormat: console
+
+user-service:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  ingress:
+    hosts:
+      - host: user.dev.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: user-service-tls
+        hosts:
+          - user.dev.sparkfund.com
+  env:
+    environment: development
+    logLevel: debug
+    logFormat: console
+
+ai-service:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  ingress:
+    hosts:
+      - host: ai.dev.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: ai-service-tls
+        hosts:
+          - ai.dev.sparkfund.com
+  env:
+    - name: DEBUG
+      value: "True"
+    - name: LOG_LEVEL
+      value: "debug"

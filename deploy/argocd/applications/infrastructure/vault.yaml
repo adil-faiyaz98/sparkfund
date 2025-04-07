@@ -1,0 +1,118 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://helm.releases.hashicorp.com
+    targetRevision: 0.25.0
+    chart: vault
+    helm:
+      values: |
+        server:
+          ha:
+            enabled: true
+            replicas: 3
+            raft:
+              enabled: true
+              setNodeId: true
+              config: |
+                ui = true
+                listener "tcp" {
+                  tls_disable = 1
+                  address = "[::]:8200"
+                  cluster_address = "[::]:8201"
+                }
+                storage "raft" {
+                  path = "/vault/data"
+                }
+                service_registration "kubernetes" {}
+          
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 250m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+          
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: vault
+                      app.kubernetes.io/instance: vault
+                      component: server
+                  topologyKey: kubernetes.io/hostname
+          
+          dataStorage:
+            enabled: true
+            size: 10Gi
+            storageClass: standard
+            accessMode: ReadWriteOnce
+          
+          service:
+            enabled: true
+          
+          ingress:
+            enabled: true
+            ingressClassName: nginx
+            hosts:
+              - host: vault.sparkfund.com
+                paths:
+                  - path: /
+                    pathType: Prefix
+            tls:
+              - secretName: vault-tls
+                hosts:
+                  - vault.sparkfund.com
+          
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "8200"
+            prometheus.io/path: "/v1/sys/metrics"
+        
+        ui:
+          enabled: true
+        
+        injector:
+          enabled: true
+          
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 256Mi
+              cpu: 250m
+          
+          metrics:
+            enabled: true
+          
+          webhook:
+            objectSelector:
+              matchLabels:
+                vault-injection: enabled
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

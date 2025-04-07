@@ -29,6 +29,8 @@ type KYCBehaviorModel interface {
 	Update(ctx context.Context, data []KYCBehaviorData) error
 	Save(path string) error
 	Load(path string) error
+	Version() string
+	UpdateModel(ctx context.Context, newVersion string) error
 }
 
 // KYCBehaviorData represents KYC behavior data
@@ -102,6 +104,13 @@ func (b *KYCBehaviorAnalyzer) TrainModel(ctx context.Context, data []KYCBehavior
 // UpdateModel updates the model with new data
 func (b *KYCBehaviorAnalyzer) UpdateModel(ctx context.Context, data []KYCBehaviorData) error {
 	return b.model.Update(ctx, data)
+}
+
+// Add new methods for real-time behavior tracking
+func (b *KYCBehaviorAnalyzer) TrackBehaviorStream(ctx context.Context) (<-chan *KYCBehaviorAlert, error) {
+	alertChan := make(chan *KYCBehaviorAlert)
+	go b.streamProcessor(ctx, alertChan)
+	return alertChan, nil
 }
 
 // Helper functions

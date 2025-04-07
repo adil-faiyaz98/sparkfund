@@ -1,0 +1,202 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: falco
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://falcosecurity.github.io/charts
+    targetRevision: 3.8.1
+    chart: falco
+    helm:
+      values: |
+        driver:
+          kind: ebpf
+          ebpf:
+            hostNetwork: true
+            leastPrivileged: true
+        
+        falco:
+          rules:
+            custom:
+              sensitive_mount_containers.yaml: |-
+                - macro: sparkfund_sensitive_mount_containers
+                  condition: (container.image.repository contains "sparkfund")
+                
+                - rule: Sensitive Mount in SparkFund Container
+                  desc: Detect the mounting of sensitive paths in SparkFund containers
+                  condition: >
+                    spawned_process and
+                    container and
+                    sparkfund_sensitive_mount_containers and
+                    proc.name = "mount" and
+                    (proc.args contains "/etc/shadow" or
+                     proc.args contains "/etc/passwd" or
+                     proc.args contains "/etc/ssh" or
+                     proc.args contains "/root/.ssh" or
+                     proc.args contains "/var/run/docker.sock")
+                  output: >
+                    Sensitive mount in SparkFund container (user=%user.name
+                    command=%proc.cmdline container_id=%container.id
+                    container_name=%container.name image=%container.image.repository:%container.image.tag)
+                  priority: WARNING
+                  tags: [container, process]
+              
+              crypto_miners.yaml: |-
+                - rule: Crypto Miner Execution
+                  desc: Detect crypto miner execution
+                  condition: >
+                    spawned_process and
+                    container and
+                    (proc.name = "xmrig" or
+                     proc.name = "cryptonight" or
+                     proc.name = "stratum+tcp" or
+                     proc.name = "monero" or
+                     proc.cmdline contains "xmrig" or
+                     proc.cmdline contains "cryptonight" or
+                     proc.cmdline contains "stratum+tcp" or
+                     proc.cmdline contains "monero")
+                  output: >
+                    Crypto miner execution detected (user=%user.name
+                    command=%proc.cmdline container_id=%container.id
+                    container_name=%container.name image=%container.image.repository:%container.image.tag)
+                  priority: CRITICAL
+                  tags: [container, process]
+              
+              privilege_escalation.yaml: |-
+                - rule: Privilege Escalation in Container
+                  desc: Detect privilege escalation in containers
+                  condition: >
+                    spawned_process and
+                    container and
+                    (proc.name = "sudo" or
+                     proc.name = "su" or
+                     proc.cmdline contains "sudo " or
+                     proc.cmdline contains "su -")
+                  output: >
+                    Privilege escalation in container (user=%user.name
+                    command=%proc.cmdline container_id=%container.id
+                    container_name=%container.name image=%container.image.repository:%container.image.tag)
+                  priority: WARNING
+                  tags: [container, process]
+              
+              unauthorized_process.yaml: |-
+                - macro: sparkfund_authorized_processes
+                  condition: >
+                    (proc.name = "node" or
+                     proc.name = "npm" or
+                     proc.name = "go" or
+                     proc.name = "python" or
+                     proc.name = "python3" or
+                     proc.name = "java" or
+                     proc.name = "bash" or
+                     proc.name = "sh")
+                
+                - rule: Unauthorized Process in SparkFund Container
+                  desc: Detect unauthorized processes in SparkFund containers
+                  condition: >
+                    spawned_process and
+                    container and
+                    sparkfund_sensitive_mount_containers and
+                    not sparkfund_authorized_processes and
+                    not proc.name in (container.image.repository)
+                  output: >
+                    Unauthorized process in SparkFund container (user=%user.name
+                    command=%proc.cmdline container_id=%container.id
+                    container_name=%container.name image=%container.image.repository:%container.image.tag)
+                  priority: WARNING
+                  tags: [container, process]
+          
+          json_output: true
+          json_include_output_property: true
+          log_stderr: true
+          log_syslog: false
+          log_level: info
+          priority: debug
+          syscall_event_drops:
+            actions:
+              - log
+              - alert
+            rate: 0.03333
+            max_burst: 10
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        service:
+          type: ClusterIP
+        
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+        
+        falcoctl:
+          config:
+            artifact:
+              install:
+                refs:
+                  - falco-rules:0
+                  - k8saudit-rules:0
+            outputs:
+              - name: stdout
+                priority: debug
+              - name: slack
+                priority: critical
+                webhook: ${FALCO_SLACK_WEBHOOK}
+        
+        falcosidekick:
+          enabled: true
+          config:
+            slack:
+              webhookurl: ${FALCO_SLACK_WEBHOOK}
+              outputformat: all
+              minimumpriority: warning
+            prometheus:
+              hostport: http://prometheus-server.monitoring:80
+            alertmanager:
+              hostport: http://alertmanager.monitoring:9093
+            loki:
+              hostport: http://loki.monitoring:3100
+          
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          
+          service:
+            type: ClusterIP
+          
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: falco
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

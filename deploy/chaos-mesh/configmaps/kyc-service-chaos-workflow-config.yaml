@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kyc-service-chaos-workflow-config
+  namespace: chaos-mesh
+data:
+  pod-failure.yaml: |
+    apiVersion: chaos-mesh.org/v1alpha1
+    kind: PodChaos
+    metadata:
+      name: kyc-service-pod-failure
+      namespace: chaos-mesh
+    spec:
+      action: pod-failure
+      mode: one
+      selector:
+        namespaces:
+          - sparkfund-prod
+        labelSelectors:
+          app.kubernetes.io/name: kyc-service
+      duration: "60s"
+  
+  network-delay.yaml: |
+    apiVersion: chaos-mesh.org/v1alpha1
+    kind: NetworkChaos
+    metadata:
+      name: kyc-service-network-delay
+      namespace: chaos-mesh
+    spec:
+      action: delay
+      mode: one
+      selector:
+        namespaces:
+          - sparkfund-prod
+        labelSelectors:
+          app.kubernetes.io/name: kyc-service
+      delay:
+        latency: "200ms"
+        correlation: "25"
+        jitter: "50ms"
+      duration: "300s"
+  
+  cpu-stress.yaml: |
+    apiVersion: chaos-mesh.org/v1alpha1
+    kind: StressChaos
+    metadata:
+      name: kyc-service-cpu-stress
+      namespace: chaos-mesh
+    spec:
+      mode: one
+      selector:
+        namespaces:
+          - sparkfund-prod
+        labelSelectors:
+          app.kubernetes.io/name: kyc-service
+      stressors:
+        cpu:
+          workers: 2
+          load: 50
+          options: ["--cpu-method", "all"]
+      duration: "300s"
+  
+  memory-stress.yaml: |
+    apiVersion: chaos-mesh.org/v1alpha1
+    kind: StressChaos
+    metadata:
+      name: kyc-service-memory-stress
+      namespace: chaos-mesh
+    spec:
+      mode: one
+      selector:
+        namespaces:
+          - sparkfund-prod
+        labelSelectors:
+          app.kubernetes.io/name: kyc-service
+      stressors:
+        memory:
+          workers: 2
+          size: "256MB"
+          options: ["--vm-bytes", "256M", "--vm-keep"]
+      duration: "300s"
+  
+  io-stress.yaml: |
+    apiVersion: chaos-mesh.org/v1alpha1
+    kind: IOChaos
+    metadata:
+      name: kyc-service-io-stress
+      namespace: chaos-mesh
+    spec:
+      action: latency
+      mode: one
+      selector:
+        namespaces:
+          - sparkfund-prod
+        labelSelectors:
+          app.kubernetes.io/name: kyc-service
+      volumePath: /
+      path: "*"
+      delay: "100ms"
+      percent: 50
+      duration: "300s"

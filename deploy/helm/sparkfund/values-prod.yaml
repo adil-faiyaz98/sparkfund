@@ -1,0 +1,143 @@
+# Production environment values for sparkfund.
+
+api-gateway:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  ingress:
+    hosts:
+      - host: api.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: api-gateway-tls
+        hosts:
+          - api.sparkfund.com
+  env:
+    environment: production
+    logLevel: info
+    logFormat: json
+
+kyc-service:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  ingress:
+    hosts:
+      - host: kyc.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: kyc-service-tls
+        hosts:
+          - kyc.sparkfund.com
+  env:
+    environment: production
+    logLevel: info
+    logFormat: json
+  rollout:
+    enabled: true
+    strategy:
+      type: Canary
+      canary:
+        initialWeight: 10
+        initialPause: 10m
+        secondWeight: 30
+        secondPause: 10m
+        thirdWeight: 50
+        thirdPause: 10m
+        finalWeight: 80
+        finalPause: 10m
+    analysis:
+      latencyThreshold: 0.5
+      errorRateThreshold: 0.01
+      loadTest:
+        enabled: true
+        users: 50
+        duration: 300s
+        rate: 10
+
+investment-service:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  ingress:
+    hosts:
+      - host: investment.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: investment-service-tls
+        hosts:
+          - investment.sparkfund.com
+  env:
+    environment: production
+    logLevel: info
+    logFormat: json
+
+user-service:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  ingress:
+    hosts:
+      - host: user.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: user-service-tls
+        hosts:
+          - user.sparkfund.com
+  env:
+    environment: production
+    logLevel: info
+    logFormat: json
+
+ai-service:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  ingress:
+    hosts:
+      - host: ai.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: ai-service-tls
+        hosts:
+          - ai.sparkfund.com
+  env:
+    - name: DEBUG
+      value: "False"
+    - name: LOG_LEVEL
+      value: "info"

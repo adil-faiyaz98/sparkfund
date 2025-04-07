@@ -1,56 +1,97 @@
-# Binaries for programs and plugins
+# Version Control
+.git
+.gitignore
+.gitattributes
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+bin/
+dist/
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+coverage.txt
+coverage.html
 
-# Dependency directories to remove from the vendor directory
+# Dependencies
 vendor/
+go.sum
 
-# Go workspace file
-go.work
-
-# IDE specific files
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Environment files
+# Environment and config
 .env
 .env.*
 !.env.example
+*.env
+.aws/
+.kube/
 
-# Log files
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+*.md
+!config.yaml
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+*.dockerfile
+
+# Kubernetes
+k8s/
+helm/
+*.yaml
+!config.yaml
+!config/*.yaml
+
+# Development and test files
+*_test.go
+tests/
+test/
+testing/
+mock_*.go
+*.mock.go
+
+# Logs and temporary files
 *.log
 logs/
-
-# OS specific files
-.DS_Store
-Thumbs.db
-
-# Build output
-bin/
-dist/
-
-# Temporary files
+tmp/
+temp/
 *.tmp
 *.temp
 *.bak
 
-# Docker
-.docker/
+# OS generated files
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Coverage reports
-coverage.out
-coverage.html
+# Debug files
+debug/
+*.debug
+*.pprof
+*.prof
 
-# Mock files
-mock_*.go 
+# Miscellaneous
+*.csv
+*.dat
+*.gz
+*.tar
+*.zip
+*.rar
+*.7z

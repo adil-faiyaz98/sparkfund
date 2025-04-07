@@ -1,45 +1,97 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
 # Binaries for programs and plugins
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+*.bin
 
 # Test binary, built with `go test -c`
 *.test
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+*.html
+coverage.txt
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
 
 # Go workspace file
 go.work
-go.work.sum
 
-# env file
-.env
-
-# IDE specific
+# IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
-# Project specific
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Build directories
+build/
+bin/
+dist/
 tmp/
-data/
-*.log
-
-# Docker
-.docker/
 
 # Environment variables
+.env
 .env.local
+.env.development
+.env.test
+.env.production
 
-# Air temporary files
+# Log files
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+
+# Certificate files
+*.pem
+*.key
+*.crt
+*.csr
+*.srl
+
+# Docker volumes
+data/
+
+# Temporary files
+*.tmp
+*.bak
+
+# Generated files
+swagger.json
+swagger.yaml
+docs/swagger/
+
+# Dependency lock files (except go.sum)
+yarn.lock
+package-lock.json
+composer.lock
+Pipfile.lock
+
+# Compiled assets
+*.min.js
+*.min.css
+*.bundle.js
+*.bundle.css
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Kubernetes
+kubeconfig
+
+# Air (live reload)
+.air.toml
 tmp/

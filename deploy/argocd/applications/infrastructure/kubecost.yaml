@@ -1,0 +1,141 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubecost
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://kubecost.github.io/cost-analyzer/
+    targetRevision: 1.106.0
+    chart: cost-analyzer
+    helm:
+      values: |
+        global:
+          prometheus:
+            enabled: false
+            fqdn: http://prometheus-server.monitoring:80
+          grafana:
+            enabled: false
+            proxy: false
+            fqdn: http://grafana.monitoring:80
+          persistentVolume:
+            enabled: true
+            storageClass: standard
+            size: 32Gi
+        
+        kubecostModel:
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          warmupPeriod: 2h
+        
+        kubecostFrontend:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          service:
+            type: ClusterIP
+          ingress:
+            enabled: true
+            ingressClassName: nginx
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
+              nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            hosts:
+              - host: kubecost.sparkfund.com
+                paths:
+                  - path: /
+                    pathType: Prefix
+            tls:
+              - secretName: kubecost-tls
+                hosts:
+                  - kubecost.sparkfund.com
+        
+        prometheus:
+          server:
+            enabled: false
+          alertmanager:
+            enabled: false
+          pushgateway:
+            enabled: false
+          nodeExporter:
+            enabled: false
+          kubeStateMetrics:
+            enabled: false
+        
+        grafana:
+          enabled: false
+        
+        networkCosts:
+          enabled: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        
+        serviceMonitor:
+          enabled: true
+        
+        kubecostSavings:
+          enabled: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+        
+        reporting:
+          enabled: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        
+        cloudIntegration:
+          enabled: true
+          aws:
+            enabled: true
+            secretName: kubecost-aws-integration
+            secretKey: aws-integration-id
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubecost
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

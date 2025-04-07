@@ -1,0 +1,103 @@
+{{- define "common.vault-agent-config" -}}
+{{- if .Values.vault.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "common.fullname" . }}-vault-agent-config
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+data:
+  config.hcl: |
+    auto_auth {
+      method "kubernetes" {
+        mount_path = "auth/kubernetes"
+        config = {
+          role = "{{ .Chart.Name }}"
+        }
+      }
+
+      sink "file" {
+        config = {
+          path = "/vault/token"
+        }
+      }
+    }
+
+    template {
+      destination = "/vault/secrets/config.json"
+      contents = <<EOH
+      {
+        {{- if .Values.database.enabled }}
+        "database": {
+          {{ with secret "database/creds/{{ .Chart.Name }}" }}
+          "username": "{{ .Data.username }}",
+          "password": "{{ .Data.password }}"
+          {{ end }}
+        },
+        {{- end }}
+        {{- if .Values.cache.enabled }}
+        "cache": {
+          {{ with secret "kv/data/{{ .Chart.Name }}/redis" }}
+          "password": "{{ .Data.data.password }}"
+          {{ end }}
+        },
+        {{- end }}
+        {{- if .Values.jwt.enabled }}
+        "jwt": {
+          {{ with secret "kv/data/{{ .Chart.Name }}/config" }}
+          "secret": "{{ .Data.data.jwt-secret }}"
+          {{ end }}
+        },
+        {{- end }}
+        "api": {
+          {{ with secret "kv/data/{{ .Chart.Name }}/config" }}
+          "key": "{{ .Data.data.api-key }}"
+          {{ end }}
+        }
+      }
+      EOH
+    }
+
+    {{- if .Values.vault.transit.enabled }}
+    template {
+      destination = "/vault/secrets/transit.json"
+      contents = <<EOH
+      {
+        "transit": {
+          "key": "{{ .Values.vault.transit.key }}"
+        }
+      }
+      EOH
+    }
+    {{- end }}
+
+    {{- if .Values.vault.pki.enabled }}
+    template {
+      destination = "/vault/secrets/cert.pem"
+      contents = <<EOH
+      {{ with secret "pki/issue/sparkfund-dot-com" "common_name={{ .Chart.Name }}.sparkfund.com" "ttl=24h" }}
+      {{ .Data.certificate }}
+      {{ end }}
+      EOH
+    }
+
+    template {
+      destination = "/vault/secrets/key.pem"
+      contents = <<EOH
+      {{ with secret "pki/issue/sparkfund-dot-com" "common_name={{ .Chart.Name }}.sparkfund.com" "ttl=24h" }}
+      {{ .Data.private_key }}
+      {{ end }}
+      EOH
+    }
+
+    template {
+      destination = "/vault/secrets/ca.pem"
+      contents = <<EOH
+      {{ with secret "pki/issue/sparkfund-dot-com" "common_name={{ .Chart.Name }}.sparkfund.com" "ttl=24h" }}
+      {{ .Data.issuing_ca }}
+      {{ end }}
+      EOH
+    }
+    {{- end }}
+{{- end }}
+{{- end -}}

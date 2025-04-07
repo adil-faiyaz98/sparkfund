@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm"
 
 	"sparkfund/services/kyc-service/internal/model"
-	"sparkfund/services/kyc-service/internal/models"
 )
 
 // DocumentRepository handles database operations for documents
@@ -23,14 +22,14 @@ func NewDocumentRepository(db *gorm.DB) *DocumentRepository {
 }
 
 // Create creates a new document
-func (r *DocumentRepository) Create(ctx context.Context, doc *models.Document) error {
+func (r *DocumentRepository) Create(ctx context.Context, doc *model.Document) error {
 	return r.db.WithContext(ctx).Create(doc).Error
 }
 
 // GetByID retrieves a document by ID
-func (r *DocumentRepository) GetByID(id uuid.UUID) (*model.Document, error) {
+func (r *DocumentRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Document, error) {
 	var document model.Document
-	err := r.db.First(&document, "id = ?", id).Error
+	err := r.db.WithContext(ctx).First(&document, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +37,8 @@ func (r *DocumentRepository) GetByID(id uuid.UUID) (*model.Document, error) {
 }
 
 // GetByUserID retrieves a document by user ID
-func (r *DocumentRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*models.Document, error) {
-	var doc models.Document
+func (r *DocumentRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*model.Document, error) {
+	var doc model.Document
 	err := r.db.WithContext(ctx).First(&doc, "user_id = ?", userID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -50,20 +49,42 @@ func (r *DocumentRepository) GetByUserID(ctx context.Context, userID uuid.UUID) 
 	return &doc, nil
 }
 
+// GetByUserIDPaginated retrieves documents for a user with pagination
+func (r *DocumentRepository) GetByUserIDPaginated(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]*model.Document, int64, error) {
+	var documents []*model.Document
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&model.Document{}).Where("user_id = ?", userID)
+
+	// Get total count
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	err = query.Offset((page - 1) * pageSize).Limit(pageSize).Find(&documents).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return documents, total, nil
+}
+
 // Update updates an existing document
-func (r *DocumentRepository) Update(ctx context.Context, doc *models.Document) error {
+func (r *DocumentRepository) Update(ctx context.Context, doc *model.Document) error {
 	return r.db.WithContext(ctx).Save(doc).Error
 }
 
 // Delete soft deletes a document
 func (r *DocumentRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&models.Document{}, "id = ?", id).Error
+	return r.db.WithContext(ctx).Delete(&model.Document{}, "id = ?", id).Error
 }
 
 // GetHistory retrieves the history of a document
-func (r *DocumentRepository) GetHistory(documentID uuid.UUID) ([]*model.DocumentHistory, error) {
+func (r *DocumentRepository) GetHistory(ctx context.Context, documentID uuid.UUID) ([]*model.DocumentHistory, error) {
 	var history []*model.DocumentHistory
-	err := r.db.Where("document_id = ?", documentID).Order("created_at DESC").Find(&history).Error
+	err := r.db.WithContext(ctx).Where("document_id = ?", documentID).Order("created_at DESC").Find(&history).Error
 	if err != nil {
 		return nil, err
 	}
@@ -71,51 +92,67 @@ func (r *DocumentRepository) GetHistory(documentID uuid.UUID) ([]*model.Document
 }
 
 // AddHistoryEntry adds a new history entry to a document
-func (r *DocumentRepository) AddHistoryEntry(entry *model.DocumentHistory) error {
-	return r.db.Create(entry).Error
+func (r *DocumentRepository) AddHistoryEntry(ctx context.Context, entry *model.DocumentHistory) error {
+	return r.db.WithContext(ctx).Create(entry).Error
 }
 
 // GetStats retrieves statistics about documents
-func (r *DocumentRepository) GetStats() (*model.DocumentStats, error) {
+func (r *DocumentRepository) GetStats(ctx context.Context) (*model.DocumentStats, error) {
 	var stats model.DocumentStats
 
 	// Get total count
-	err := r.db.Model(&model.Document{}).Count(&stats.TotalCount).Error
+	err := r.db.WithContext(ctx).Model(&model.Document{}).Count(&stats.TotalCount).Error
 	if err != nil {
 		return nil, err
 	}
 
 	// Get counts by status
-	err = r.db.Model(&model.Document{}).Where("status = ?", model.DocumentStatusPending).Count(&stats.PendingCount).Error
+	err = r.db.WithContext(ctx).Model(&model.Document{}).Where("status = ?", model.DocumentStatusPending).Count(&stats.PendingCount).Error
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.db.Model(&model.Document{}).Where("status = ?", model.DocumentStatusVerified).Count(&stats.VerifiedCount).Error
+	err = r.db.WithContext(ctx).Model(&model.Document{}).Where("status = ?", model.DocumentStatusVerified).Count(&stats.VerifiedCount).Error
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.db.Model(&model.Document{}).Where("status = ?", model.DocumentStatusRejected).Count(&stats.RejectedCount).Error
+	err = r.db.WithContext(ctx).Model(&model.Document{}).Where("status = ?", model.DocumentStatusRejected).Count(&stats.RejectedCount).Error
 	if err != nil {
 		return nil, err
 	}
 
-	err = r.db.Model(&model.Document{}).Where("status = ?", model.DocumentStatusExpired).Count(&stats.ExpiredCount).Error
+	err = r.db.WithContext(ctx).Model(&model.Document{}).Where("status = ?", model.DocumentStatusExpired).Count(&stats.ExpiredCount).Error
 	if err != nil {
 		return nil, err
 	}
 
 	// Calculate average file size
-	err = r.db.Model(&model.Document{}).Select("AVG(file_size)").Row().Scan(&stats.AverageFileSize)
+	err = r.db.WithContext(ctx).Model(&model.Document{}).Select("AVG(file_size)").Row().Scan(&stats.AverageFileSize)
 	if err != nil {
 		return nil, err
 	}
 
 	// Calculate total file size
-	err = r.db.Model(&model.Document{}).Select("SUM(file_size)").Row().Scan(&stats.TotalFileSize)
+	err = r.db.WithContext(ctx).Model(&model.Document{}).Select("SUM(file_size)").Row().Scan(&stats.TotalFileSize)
 	if err != nil {
 		return nil, err
+	}
+
+	// Calculate average processing time for verified documents
+	var avgProcessingTime float64
+	err = r.db.WithContext(ctx).Model(&model.Document{}).
+		Where("status = ? AND verified_at IS NOT NULL", model.DocumentStatusVerified).
+		Select("AVG(EXTRACT(EPOCH FROM (verified_at - created_at)))").
+		Row().Scan(&avgProcessingTime)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	stats.ProcessingTimeAvg = time.Duration(avgProcessingTime) * time.Second
+
+	// Calculate verification rate
+	if stats.TotalCount > 0 {
+		stats.VerificationRate = float64(stats.VerifiedCount) / float64(stats.TotalCount) * 100
 	}
 
 	// Get counts by document type
@@ -192,11 +229,11 @@ func (r *DocumentRepository) GetRejected() ([]*model.Document, error) {
 }
 
 // GetByType retrieves documents by type
-func (r *DocumentRepository) GetByType(documentType model.DocumentType, page, pageSize int) ([]*model.Document, int64, error) {
+func (r *DocumentRepository) GetByType(ctx context.Context, documentType model.DocumentType, page, pageSize int) ([]*model.Document, int64, error) {
 	var documents []*model.Document
 	var total int64
 
-	query := r.db.Model(&model.Document{}).Where("type = ?", documentType)
+	query := r.db.WithContext(ctx).Model(&model.Document{}).Where("type = ?", documentType)
 
 	// Get total count
 	err := query.Count(&total).Error
@@ -214,11 +251,11 @@ func (r *DocumentRepository) GetByType(documentType model.DocumentType, page, pa
 }
 
 // GetByDateRange retrieves documents by date range
-func (r *DocumentRepository) GetByDateRange(startDate, endDate time.Time, page, pageSize int) ([]*model.Document, int64, error) {
+func (r *DocumentRepository) GetByDateRange(ctx context.Context, startDate, endDate time.Time, page, pageSize int) ([]*model.Document, int64, error) {
 	var documents []*model.Document
 	var total int64
 
-	query := r.db.Model(&model.Document{}).
+	query := r.db.WithContext(ctx).Model(&model.Document{}).
 		Where("created_at BETWEEN ? AND ?", startDate, endDate)
 
 	// Get total count
@@ -237,8 +274,8 @@ func (r *DocumentRepository) GetByDateRange(startDate, endDate time.Time, page, 
 }
 
 // UpdateStatus updates the status of a document
-func (r *DocumentRepository) UpdateStatus(id uuid.UUID, status model.DocumentStatus, notes string, updatedBy uuid.UUID) error {
-	document, err := r.GetByID(id)
+func (r *DocumentRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status model.DocumentStatus, notes string, updatedBy uuid.UUID) error {
+	document, err := r.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -250,19 +287,22 @@ func (r *DocumentRepository) UpdateStatus(id uuid.UUID, status model.DocumentSta
 	case model.DocumentStatusVerified:
 		now := time.Now()
 		document.VerifiedAt = &now
+		document.RejectedAt = nil
+		document.RejectionReason = ""
 	case model.DocumentStatusRejected:
 		now := time.Now()
 		document.RejectedAt = &now
 		document.RejectionReason = notes
 	}
 
-	err = r.Update(document)
+	err = r.Update(ctx, document)
 	if err != nil {
 		return err
 	}
 
 	// Add history entry
 	historyEntry := &model.DocumentHistory{
+		ID:         uuid.New(),
 		DocumentID: id,
 		Status:     status,
 		Notes:      notes,
@@ -270,5 +310,5 @@ func (r *DocumentRepository) UpdateStatus(id uuid.UUID, status model.DocumentSta
 		CreatedAt:  time.Now(),
 	}
 
-	return r.AddHistoryEntry(historyEntry)
+	return r.AddHistoryEntry(ctx, historyEntry)
 }

@@ -1,0 +1,161 @@
+{{- define "common.deployment" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "common.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.deployment.rollingUpdate.maxSurge | default 1 }}
+      maxUnavailable: {{ .Values.deployment.rollingUpdate.maxUnavailable | default 0 }}
+  template:
+    metadata:
+      labels:
+        {{- include "common.selectorLabels" . | nindent 8 }}
+        {{- if .Values.vault.enabled }}
+        vault-injection: enabled
+        {{- end }}
+      annotations:
+        {{- include "common.podAnnotations" . | nindent 8 }}
+        {{- if .Values.vault.enabled }}
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/agent-image: "{{ .Values.vault.agentImage }}"
+        vault.hashicorp.com/agent-init-first: "true"
+        vault.hashicorp.com/role: "{{ .Chart.Name }}"
+        vault.hashicorp.com/agent-inject-secret-config.json: "kv/data/{{ .Chart.Name }}/config"
+        vault.hashicorp.com/agent-inject-template-config.json: |
+          {{`{{- with secret "kv/data/{{ .Chart.Name }}/config" -}}
+          {{ .Data.data | toJSON }}
+          {{- end -}}`}}
+        {{- if .Values.database.enabled }}
+        vault.hashicorp.com/agent-inject-secret-database.json: "database/creds/{{ .Chart.Name }}"
+        vault.hashicorp.com/agent-inject-template-database.json: |
+          {{`{{- with secret "database/creds/{{ .Chart.Name }}" -}}
+          {
+            "username": "{{ .Data.username }}",
+            "password": "{{ .Data.password }}"
+          }
+          {{- end -}}`}}
+        {{- end }}
+        {{- if .Values.vault.transit.enabled }}
+        vault.hashicorp.com/agent-inject-secret-transit.json: "transit/encrypt/{{ .Values.vault.transit.key }}"
+        vault.hashicorp.com/agent-inject-template-transit.json: |
+          {
+            "transit": {
+              "key": "{{ .Values.vault.transit.key }}"
+            }
+          }
+        {{- end }}
+        {{- if .Values.vault.pki.enabled }}
+        vault.hashicorp.com/agent-inject-secret-cert.pem: "pki/issue/sparkfund-dot-com"
+        vault.hashicorp.com/agent-inject-template-cert.pem: |
+          {{`{{- with secret "pki/issue/sparkfund-dot-com" "common_name={{ .Chart.Name }}.sparkfund.com" "ttl=24h" -}}
+          {{ .Data.certificate }}
+          {{- end -}}`}}
+        vault.hashicorp.com/agent-inject-secret-key.pem: "pki/issue/sparkfund-dot-com"
+        vault.hashicorp.com/agent-inject-template-key.pem: |
+          {{`{{- with secret "pki/issue/sparkfund-dot-com" "common_name={{ .Chart.Name }}.sparkfund.com" "ttl=24h" -}}
+          {{ .Data.private_key }}
+          {{- end -}}`}}
+        vault.hashicorp.com/agent-inject-secret-ca.pem: "pki/issue/sparkfund-dot-com"
+        vault.hashicorp.com/agent-inject-template-ca.pem: |
+          {{`{{- with secret "pki/issue/sparkfund-dot-com" "common_name={{ .Chart.Name }}.sparkfund.com" "ttl=24h" -}}
+          {{ .Data.issuing_ca }}
+          {{- end -}}`}}
+        {{- end }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "common.serviceAccountName" . }}
+      {{- include "common.securityContext" . | nindent 6 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- include "common.containerSecurityContext" . | nindent 10 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+            {{- if .Values.metrics.enabled }}
+            - name: metrics
+              containerPort: {{ .Values.metrics.port | default 8080 }}
+              protocol: TCP
+            {{- end }}
+          env:
+            {{- include "common.env" . | nindent 12 }}
+            {{- if not .Values.vault.enabled }}
+            {{- include "common.databaseEnv" . | nindent 12 }}
+            {{- include "common.cacheEnv" . | nindent 12 }}
+            {{- include "common.jwtEnv" . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.vault.enabled }}
+            - name: VAULT_SECRETS_PATH
+              value: "/vault/secrets"
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- include "common.probes" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.config.enabled }}
+        - name: config
+          configMap:
+            name: {{ include "common.fullname" . }}-config
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- else }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - {{ .Chart.Name }}
+              topologyKey: kubernetes.io/hostname
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end -}}

@@ -1,0 +1,185 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-base
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    targetRevision: 1.18.0
+    chart: base
+    helm:
+      values: |
+        global:
+          hub: docker.io/istio
+          tag: 1.18.0
+          defaultPodAntiAffinity:
+            type: "soft"
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                      - key: app
+                        operator: In
+                        values:
+                          - istiod
+                  topologyKey: kubernetes.io/hostname
+        
+        base:
+          enableIstioConfigCRDs: true
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-istiod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    targetRevision: 1.18.0
+    chart: istiod
+    helm:
+      values: |
+        global:
+          hub: docker.io/istio
+          tag: 1.18.0
+          proxy:
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            accessLogFile: "/dev/stdout"
+            tracer: zipkin
+          
+          meshConfig:
+            enableAutoMtls: true
+            accessLogFile: "/dev/stdout"
+            defaultConfig:
+              tracing:
+                zipkin:
+                  address: zipkin.monitoring:9411
+                sampling: 100.0
+        
+        pilot:
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2048Mi
+            limits:
+              cpu: 1000m
+              memory: 4096Mi
+          autoscaleEnabled: true
+          autoscaleMin: 2
+          autoscaleMax: 5
+          env:
+            PILOT_LOG_LEVEL: "info"
+            PILOT_TRACE_SAMPLING: "100"
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-ingress
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    targetRevision: 1.18.0
+    chart: gateway
+    helm:
+      values: |
+        global:
+          hub: docker.io/istio
+          tag: 1.18.0
+        
+        service:
+          type: LoadBalancer
+          ports:
+            - name: http2
+              port: 80
+              targetPort: 8080
+            - name: https
+              port: 443
+              targetPort: 8443
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+        
+        autoscaling:
+          enabled: true
+          minReplicas: 2
+          maxReplicas: 5
+          targetCPUUtilizationPercentage: 80
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

@@ -1,0 +1,201 @@
+# Default values for sparkfund.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Infrastructure components
+prometheus-stack:
+  enabled: true
+  grafana:
+    enabled: true
+    adminPassword: admin
+    ingress:
+      enabled: true
+      hosts:
+        - grafana.sparkfund.com
+      tls:
+        - secretName: grafana-tls
+          hosts:
+            - grafana.sparkfund.com
+  prometheus:
+    prometheusSpec:
+      retention: 15d
+      resources:
+        requests:
+          cpu: 200m
+          memory: 1Gi
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: standard
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 50Gi
+
+cert-manager:
+  enabled: true
+  installCRDs: true
+
+ingress-nginx:
+  enabled: true
+  controller:
+    config:
+      use-forwarded-headers: "true"
+      proxy-body-size: "10m"
+      proxy-read-timeout: "300"
+      proxy-send-timeout: "300"
+      proxy-connect-timeout: "300"
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# Application services
+api-gateway:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: ghcr.io/adil-faiyaz98/sparkfund/api-gateway
+    tag: "latest"
+  ingress:
+    enabled: true
+    className: "nginx"
+    hosts:
+      - host: api.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: api-gateway-tls
+        hosts:
+          - api.sparkfund.com
+  networkPolicy:
+    enabled: true
+    allowExternal: true
+  resourceQuota:
+    enabled: true
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+  limitRange:
+    enabled: true
+
+kyc-service:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: ghcr.io/adil-faiyaz98/sparkfund/kyc-service
+    tag: "latest"
+  ingress:
+    enabled: true
+    className: "nginx"
+    hosts:
+      - host: kyc.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: kyc-service-tls
+        hosts:
+          - kyc.sparkfund.com
+  networkPolicy:
+    enabled: true
+    additionalAllowedEgress:
+      - service: ai-service
+        port: 8000
+  resourceQuota:
+    enabled: true
+  limitRange:
+    enabled: true
+
+investment-service:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: ghcr.io/adil-faiyaz98/sparkfund/investment-service
+    tag: "latest"
+  ingress:
+    enabled: true
+    className: "nginx"
+    hosts:
+      - host: investment.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: investment-service-tls
+        hosts:
+          - investment.sparkfund.com
+  networkPolicy:
+    enabled: true
+  resourceQuota:
+    enabled: true
+  limitRange:
+    enabled: true
+
+user-service:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: ghcr.io/adil-faiyaz98/sparkfund/user-service
+    tag: "latest"
+  ingress:
+    enabled: true
+    className: "nginx"
+    hosts:
+      - host: user.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: user-service-tls
+        hosts:
+          - user.sparkfund.com
+  networkPolicy:
+    enabled: true
+  resourceQuota:
+    enabled: true
+  limitRange:
+    enabled: true
+
+ai-service:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/adil-faiyaz98/sparkfund/ai-service
+    tag: "latest"
+  ingress:
+    enabled: true
+    className: "nginx"
+    hosts:
+      - host: ai.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: ai-service-tls
+        hosts:
+          - ai.sparkfund.com
+  networkPolicy:
+    enabled: true
+    allowExternal: true
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi

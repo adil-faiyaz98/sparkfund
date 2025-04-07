@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"sparkfund/services/kyc-service/internal/models"
+	"sparkfund/services/kyc-service/internal/domain"
+	"sparkfund/services/kyc-service/internal/mapper"
+	"sparkfund/services/kyc-service/internal/model"
 	"sparkfund/services/kyc-service/internal/repository"
 
 	"github.com/google/uuid"
@@ -35,7 +37,7 @@ func NewDocumentService(docRepo *repository.DocumentRepository, verRepo *reposit
 }
 
 // UploadDocument handles document upload and processing
-func (s *DocumentService) UploadDocument(ctx context.Context, userID uuid.UUID, file *multipart.FileHeader, docType models.DocumentType, metadata map[string]interface{}) (*models.Document, error) {
+func (s *DocumentService) UploadDocument(ctx context.Context, userID uuid.UUID, file *multipart.FileHeader, docType string, metadata map[string]interface{}) (*domain.EnhancedDocument, error) {
 	// Validate file
 	if err := s.validateFile(file); err != nil {
 		return nil, fmt.Errorf("invalid file: %w", err)
@@ -51,16 +53,19 @@ func (s *DocumentService) UploadDocument(ctx context.Context, userID uuid.UUID, 
 	fileHash := s.calculateFileHash(fileData)
 
 	// Create document record
-	doc := &models.Document{
-		ID:       uuid.New(),
-		UserID:   userID,
-		Type:     docType,
-		Status:   models.DocumentStatusPending,
-		FileData: fileData,
-		FileHash: fileHash,
-		MimeType: file.Header.Get("Content-Type"),
-		FileSize: file.Size,
-		Metadata: metadata,
+	doc := &model.Document{
+		ID:        uuid.New(),
+		UserID:    userID,
+		Type:      model.DocumentType(docType),
+		Status:    model.DocumentStatusPending,
+		FileName:  file.Filename,
+		FileSize:  file.Size,
+		MimeType:  file.Header.Get("Content-Type"),
+		FileHash:  fileHash,
+		FilePath:  filepath.Join(s.uploadDir, fileHash),
+		Metadata:  metadata,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	// Save document
@@ -68,39 +73,37 @@ func (s *DocumentService) UploadDocument(ctx context.Context, userID uuid.UUID, 
 		return nil, fmt.Errorf("failed to save document: %w", err)
 	}
 
-	return doc, nil
+	// Convert to domain model
+	domainDoc := mapper.DocumentModelToDomain(doc)
+
+	return domainDoc, nil
 }
 
 // GetDocument retrieves a document by ID
-func (s *DocumentService) GetDocument(ctx context.Context, id uuid.UUID) (*models.Document, error) {
-	return s.docRepo.GetByID(ctx, id)
+func (s *DocumentService) GetDocument(ctx context.Context, id uuid.UUID) (*domain.EnhancedDocument, error) {
+	doc, err := s.docRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	
+	return mapper.DocumentModelToDomain(doc), nil
 }
 
 // ListDocuments retrieves documents for a user with pagination
-func (s *DocumentService) ListDocuments(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]models.Document, int64, error) {
-	return s.docRepo.GetByUserID(ctx, userID, page, pageSize)
+func (s *DocumentService) ListDocuments(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]*domain.EnhancedDocument, int64, error) {
+	docs, total, err := s.docRepo.GetByUserIDPaginated(ctx, userID, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	
+	return mapper.DocumentModelsToDomains(docs), total, nil
 }
 
 // UpdateDocumentStatus updates the status of a document
-func (s *DocumentService) UpdateDocumentStatus(ctx context.Context, id uuid.UUID, status models.DocumentStatus, verifierID uuid.UUID, method models.VerificationMethod, confidenceScore float64, notes string) error {
+func (s *DocumentService) UpdateDocumentStatus(ctx context.Context, id uuid.UUID, status domain.DocumentStatus, verifierID uuid.UUID, notes string) error {
 	// Update document status
-	if err := s.docRepo.UpdateStatus(ctx, id, status); err != nil {
+	if err := s.docRepo.UpdateStatus(ctx, id, model.DocumentStatus(status), notes, verifierID); err != nil {
 		return fmt.Errorf("failed to update document status: %w", err)
-	}
-
-	// Create verification details
-	details := &models.VerificationDetails{
-		ID:                 uuid.New(),
-		DocumentID:         id,
-		VerifiedBy:         verifierID,
-		VerifiedAt:         time.Now(),
-		VerificationMethod: method,
-		ConfidenceScore:    confidenceScore,
-		Notes:              &notes,
-	}
-
-	if err := s.verRepo.Create(ctx, details); err != nil {
-		return fmt.Errorf("failed to create verification details: %w", err)
 	}
 
 	return nil
@@ -111,14 +114,53 @@ func (s *DocumentService) DeleteDocument(ctx context.Context, id uuid.UUID) erro
 	return s.docRepo.Delete(ctx, id)
 }
 
-// GetPendingDocuments retrieves all pending documents
-func (s *DocumentService) GetPendingDocuments(ctx context.Context, page, pageSize int) ([]models.Document, int64, error) {
-	return s.docRepo.GetPendingDocuments(ctx, page, pageSize)
+// GetDocumentsByStatus retrieves documents by status with pagination
+func (s *DocumentService) GetDocumentsByStatus(ctx context.Context, status domain.DocumentStatus, page, pageSize int) ([]*domain.EnhancedDocument, int64, error) {
+	docs, total, err := s.docRepo.GetByType(ctx, model.DocumentType(status), page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	
+	return mapper.DocumentModelsToDomains(docs), total, nil
 }
 
-// GetExpiredDocuments retrieves all expired documents
-func (s *DocumentService) GetExpiredDocuments(ctx context.Context, page, pageSize int) ([]models.Document, int64, error) {
-	return s.docRepo.GetExpiredDocuments(ctx, page, pageSize)
+// GetDocumentsByDateRange retrieves documents by date range with pagination
+func (s *DocumentService) GetDocumentsByDateRange(ctx context.Context, startDate, endDate time.Time, page, pageSize int) ([]*domain.EnhancedDocument, int64, error) {
+	docs, total, err := s.docRepo.GetByDateRange(ctx, startDate, endDate, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	
+	return mapper.DocumentModelsToDomains(docs), total, nil
+}
+
+// GetDocumentStats retrieves statistics about documents
+func (s *DocumentService) GetDocumentStats(ctx context.Context) (*domain.DocumentStats, error) {
+	stats, err := s.docRepo.GetStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Convert to domain model
+	domainStats := &domain.DocumentStats{
+		TotalCount:         stats.TotalCount,
+		PendingCount:       stats.PendingCount,
+		VerifiedCount:      stats.VerifiedCount,
+		RejectedCount:      stats.RejectedCount,
+		ExpiredCount:       stats.ExpiredCount,
+		AverageFileSize:    stats.AverageFileSize,
+		TotalFileSize:      stats.TotalFileSize,
+		ProcessingTimeAvg:  stats.ProcessingTimeAvg,
+		VerificationRate:   stats.VerificationRate,
+		DocumentTypeCounts: make(map[domain.DocumentType]int64),
+	}
+	
+	// Convert document type counts
+	for docType, count := range stats.DocumentTypeCounts {
+		domainStats.DocumentTypeCounts[domain.DocumentType(docType)] = count
+	}
+	
+	return domainStats, nil
 }
 
 // validateFile validates the uploaded file

@@ -1,0 +1,135 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: trivy-operator
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://aquasecurity.github.io/helm-charts
+    targetRevision: 0.19.0
+    chart: trivy-operator
+    helm:
+      values: |
+        trivy:
+          image:
+            registry: ghcr.io
+            repository: aquasecurity/trivy
+            tag: 0.45.1
+          
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          
+          severity: CRITICAL,HIGH,MEDIUM
+          ignoreUnfixed: true
+          timeout: 10m0s
+          mode: Standalone
+          
+          server:
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 1000m
+                memory: 1Gi
+        
+        operator:
+          replicas: 1
+          
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+          
+          webhook:
+            enabled: true
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+        
+        targetNamespaces: "sparkfund-dev,sparkfund-staging,sparkfund-prod"
+        
+        configAuditScannerEnabled: true
+        vulnerabilityScannerEnabled: true
+        exposedSecretScannerEnabled: true
+        rbacAssessmentScannerEnabled: true
+        infraAssessmentScannerEnabled: true
+        complianceScannerEnabled: true
+        
+        nodeCollector:
+          enabled: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        
+        compliance:
+          specs:
+            nsa:
+              enabled: true
+              version: "1.1"
+            
+            pci-dss:
+              enabled: true
+              version: "3.2.1"
+            
+            cis:
+              enabled: true
+              version: "1.23"
+            
+            soc2:
+              enabled: true
+              version: "1.0"
+        
+        service:
+          type: ClusterIP
+        
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+        
+        webhookTLS:
+          enabled: true
+          auto: true
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: trivy-system
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

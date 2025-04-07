@@ -1,0 +1,132 @@
+name: Update Helm Values
+
+# This workflow updates Helm chart values with new image tags
+# It is triggered after a successful build and push of a service image
+
+on:
+  workflow_run:
+    workflows:
+      - "KYC Service CI/CD"
+      - "Investment Service CI/CD"
+      - "User Service CI/CD"
+      - "API Gateway CI/CD"
+    types:
+      - completed
+    branches:
+      - main
+
+env:
+  GIT_USER_NAME: "GitHub Actions"
+  GIT_USER_EMAIL: "actions@github.com"
+
+jobs:
+  update-helm-values:
+    name: Update Helm Values
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.HELM_VALUES_PAT }}  # Personal Access Token with repo scope
+          fetch-depth: 0
+
+      - name: Get workflow details
+        id: workflow-details
+        run: |
+          # Extract service name from workflow name
+          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
+          if [[ "$WORKFLOW_NAME" == *"KYC Service"* ]]; then
+            echo "service=kyc-service" >> $GITHUB_OUTPUT
+            echo "chart_service=kyc-service" >> $GITHUB_OUTPUT
+          elif [[ "$WORKFLOW_NAME" == *"Investment Service"* ]]; then
+            echo "service=investment-service" >> $GITHUB_OUTPUT
+            echo "chart_service=investment-service" >> $GITHUB_OUTPUT
+          elif [[ "$WORKFLOW_NAME" == *"User Service"* ]]; then
+            echo "service=user-service" >> $GITHUB_OUTPUT
+            echo "chart_service=user-service" >> $GITHUB_OUTPUT
+          elif [[ "$WORKFLOW_NAME" == *"API Gateway"* ]]; then
+            echo "service=api-gateway" >> $GITHUB_OUTPUT
+            echo "chart_service=api-gateway" >> $GITHUB_OUTPUT
+          else
+            echo "Unknown workflow: $WORKFLOW_NAME"
+            exit 1
+          fi
+          
+          # Get the commit SHA from the workflow run
+          echo "commit_sha=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+
+      - name: Download workflow artifacts
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: ${{ github.event.workflow_run.id }}
+            });
+            
+            const matchArtifact = artifacts.data.artifacts.find(artifact => {
+              return artifact.name === "build-info"
+            });
+            
+            if (!matchArtifact) {
+              core.setFailed('No build-info artifact found');
+              return;
+            }
+            
+            const download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: matchArtifact.id,
+              archive_format: 'zip'
+            });
+            
+            const fs = require('fs');
+            fs.writeFileSync('build-info.zip', Buffer.from(download.data));
+            
+            const AdmZip = require('adm-zip');
+            const zip = new AdmZip('build-info.zip');
+            zip.extractAllTo('build-info', true);
+
+      - name: Get image tag
+        id: image-tag
+        run: |
+          if [ -f "build-info/image-tag.txt" ]; then
+            IMAGE_TAG=$(cat build-info/image-tag.txt)
+            echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          else
+            # Fallback to using commit SHA
+            echo "image_tag=sha-${{ steps.workflow-details.outputs.commit_sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Helm values
+        run: |
+          SERVICE=${{ steps.workflow-details.outputs.service }}
+          CHART_SERVICE=${{ steps.workflow-details.outputs.chart_service }}
+          IMAGE_TAG=${{ steps.image-tag.outputs.image_tag }}
+          
+          # Update values in parent chart
+          yq -i '.${CHART_SERVICE}.image.tag = "${IMAGE_TAG}"' deploy/helm/sparkfund/values.yaml
+          
+          # Update values in service chart
+          yq -i '.image.tag = "${IMAGE_TAG}"' deploy/helm/${CHART_SERVICE}/values.yaml
+          
+          echo "Updated Helm values for ${SERVICE} with image tag: ${IMAGE_TAG}"
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "${{ env.GIT_USER_NAME }}"
+          git config --global user.email "${{ env.GIT_USER_EMAIL }}"
+
+      - name: Commit and push changes
+        run: |
+          SERVICE=${{ steps.workflow-details.outputs.service }}
+          IMAGE_TAG=${{ steps.image-tag.outputs.image_tag }}
+          
+          git add deploy/helm/sparkfund/values.yaml
+          git add deploy/helm/${{ steps.workflow-details.outputs.chart_service }}/values.yaml
+          
+          git commit -m "chore: update ${SERVICE} image tag to ${IMAGE_TAG}" || echo "No changes to commit"
+          git push

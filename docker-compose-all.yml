@@ -1,0 +1,249 @@
+version: "3.8"
+
+services:
+  # API Gateway - Entry point for all services
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=development
+      - KYC_SERVICE_URL=http://kyc-service:8081
+      - INVESTMENT_SERVICE_URL=http://investment-service:8080
+      - USER_SERVICE_URL=http://user-service:8084
+      - AI_SERVICE_URL=http://ai-service:8000
+    depends_on:
+      - kyc-service
+      - investment-service
+      - user-service
+      - ai-service
+    networks:
+      - sparkfund-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # KYC Service - Know Your Customer functionality
+  kyc-service:
+    build:
+      context: ./services/kyc-service
+    ports:
+      - "8081:8081"
+    environment:
+      - ENV=development
+      - PORT=8081
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=kyc_service
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_SERVICE_URL=http://ai-service:8000
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - sparkfund-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Investment Service - Investment management
+  investment-service:
+    build:
+      context: ./services/investment-service
+      target: production
+    ports:
+      - "8082:8080"
+    environment:
+      - APP_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=investment_service
+      - DB_SSL_MODE=disable
+      - JWT_SECRET=your-jwt-secret
+    depends_on:
+      - postgres
+    networks:
+      - sparkfund-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # User Service - User management
+  user-service:
+    build:
+      context: ./services/user-service
+      target: production
+    ports:
+      - "8083:8084"
+    environment:
+      - APP_ENV=development
+      - APP_DATABASE_HOST=postgres
+      - APP_DATABASE_PORT=5432
+      - APP_DATABASE_USER=postgres
+      - APP_DATABASE_PASSWORD=postgres
+      - APP_DATABASE_NAME=user_service
+      - APP_DATABASE_SSLMODE=disable
+      - APP_JWT_SECRET=your-jwt-secret
+    depends_on:
+      - postgres
+    networks:
+      - sparkfund-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8084/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # AI Service - AI-powered document verification and analysis
+  ai-service:
+    build:
+      context: ./services/ai-service
+    ports:
+      - "8001:8000"
+    environment:
+      - DEBUG=False
+      - HOST=0.0.0.0
+      - PORT=8000
+      - API_KEY=your-api-key
+      - MODEL_PATH=/app/models
+      - UPLOAD_DIR=/app/uploads
+    volumes:
+      - ai_uploads:/app/uploads
+      - ai_models:/app/models
+    networks:
+      - sparkfund-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # PostgreSQL - Primary database
+  postgres:
+    image: postgres:14-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sparkfund
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - sparkfund-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Caching and session management
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - sparkfund-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - sparkfund-network
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:10.0.3
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - sparkfund-network
+    depends_on:
+      - prometheus
+
+  # Jaeger - Distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.47
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "14268:14268"
+      - "14250:14250"
+      - "9411:9411"
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=9411
+    networks:
+      - sparkfund-network
+
+networks:
+  sparkfund-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  ai_uploads:
+  ai_models:
+  prometheus-data:
+  grafana-data:

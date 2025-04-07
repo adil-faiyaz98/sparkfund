@@ -1,0 +1,114 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tempo
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 1.5.0
+    chart: tempo
+    helm:
+      values: |
+        tempo:
+          storage:
+            trace:
+              backend: local
+              local:
+                path: /var/tempo/traces
+              wal:
+                path: /var/tempo/wal
+          receivers:
+            jaeger:
+              protocols:
+                grpc:
+                  endpoint: 0.0.0.0:14250
+                thrift_binary:
+                  endpoint: 0.0.0.0:6832
+                thrift_compact:
+                  endpoint: 0.0.0.0:6831
+                thrift_http:
+                  endpoint: 0.0.0.0:14268
+            zipkin:
+              endpoint: 0.0.0.0:9411
+            otlp:
+              protocols:
+                grpc:
+                  endpoint: 0.0.0.0:4317
+                http:
+                  endpoint: 0.0.0.0:4318
+          distributor:
+            receivers:
+              jaeger:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:14250
+                  thrift_binary:
+                    endpoint: 0.0.0.0:6832
+                  thrift_compact:
+                    endpoint: 0.0.0.0:6831
+                  thrift_http:
+                    endpoint: 0.0.0.0:14268
+              zipkin:
+                endpoint: 0.0.0.0:9411
+              otlp:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                  http:
+                    endpoint: 0.0.0.0:4318
+          compactor:
+            compaction:
+              block_retention: 48h
+          metrics_generator:
+            registry:
+              external_labels:
+                source: tempo
+                cluster: sparkfund
+            storage:
+              path: /var/tempo/generator/wal
+              remote_write:
+                - url: http://prometheus-server.monitoring:9090/api/v1/write
+                  send_exemplars: true
+        
+        persistence:
+          enabled: true
+          size: 10Gi
+          storageClassName: standard
+        
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        
+        service:
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "3100"
+        
+        serviceMonitor:
+          enabled: true
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

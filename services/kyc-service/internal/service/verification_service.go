@@ -1,201 +1,205 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"sparkfund/services/kyc-service/internal/domain"
+	"sparkfund/services/kyc-service/internal/mapper"
 	"sparkfund/services/kyc-service/internal/model"
 	"sparkfund/services/kyc-service/internal/repository"
 
 	"github.com/google/uuid"
 )
 
-// VerificationService handles business logic for document verification
+// VerificationService handles business logic for verification operations
 type VerificationService struct {
-	verificationRepo *repository.VerificationRepository
-	documentRepo     *repository.DocumentRepository
+	verRepo     *repository.VerificationRepository
+	docRepo     *repository.DocumentRepository
+	kycRepo     *repository.KYCRepository
 }
 
 // NewVerificationService creates a new verification service
-func NewVerificationService(verificationRepo *repository.VerificationRepository, documentRepo *repository.DocumentRepository) *VerificationService {
+func NewVerificationService(verRepo *repository.VerificationRepository, docRepo *repository.DocumentRepository, kycRepo *repository.KYCRepository) *VerificationService {
 	return &VerificationService{
-		verificationRepo: verificationRepo,
-		documentRepo:     documentRepo,
+		verRepo: verRepo,
+		docRepo: docRepo,
+		kycRepo: kycRepo,
 	}
 }
 
 // CreateVerification creates a new verification record
-func (s *VerificationService) CreateVerification(documentID uuid.UUID, method model.VerificationMethod) (*model.Verification, error) {
+func (s *VerificationService) CreateVerification(ctx context.Context, documentID uuid.UUID, method domain.VerificationMethod) (*domain.EnhancedVerification, error) {
 	// Check if document exists
-	document, err := s.documentRepo.GetByID(documentID)
+	document, err := s.docRepo.GetByID(ctx, documentID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create verification record
 	verification := &model.Verification{
-		DocumentID: documentID,
-		Status:     model.VerificationStatusPending,
-		Method:     method,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-		ExpiresAt:  &time.Time{},
+		ID:              uuid.New(),
+		DocumentID:      &documentID,
+		Type:            model.VerificationType(domain.VerificationTypeDocument),
+		Status:          model.VerificationStatusPending,
+		Method:          model.VerificationMethod(method),
+		ConfidenceScore: 0,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 
-	// Set expiration time based on document type
-	switch document.Type {
-	case model.DocumentTypeID:
-		verification.ExpiresAt = &time.Time{}
-		*verification.ExpiresAt = time.Now().Add(24 * time.Hour)
-	case model.DocumentTypeProofOfAddress:
-		verification.ExpiresAt = &time.Time{}
-		*verification.ExpiresAt = time.Now().Add(48 * time.Hour)
-	default:
-		verification.ExpiresAt = &time.Time{}
-		*verification.ExpiresAt = time.Now().Add(72 * time.Hour)
+	// Save verification
+	if err := s.verRepo.Create(ctx, verification); err != nil {
+		return nil, fmt.Errorf("failed to create verification: %w", err)
 	}
 
-	err = s.verificationRepo.Create(verification)
+	// Convert to domain model
+	domainVerification := mapper.VerificationModelToDomain(verification)
+
+	return domainVerification, nil
+}
+
+// GetVerification retrieves a verification by ID
+func (s *VerificationService) GetVerification(ctx context.Context, id uuid.UUID) (*domain.EnhancedVerification, error) {
+	verification, err := s.verRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	return verification, nil
+	return mapper.VerificationModelToDomain(verification), nil
 }
 
-// GetVerification retrieves verification details by ID
-func (s *VerificationService) GetVerification(id uuid.UUID) (*model.Verification, error) {
-	return s.verificationRepo.GetByID(id)
+// ListVerifications retrieves verifications with pagination
+func (s *VerificationService) ListVerifications(ctx context.Context, page, pageSize int) ([]*domain.EnhancedVerification, int64, error) {
+	verifications, total, err := s.verRepo.List(ctx, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return mapper.VerificationModelsToDomains(verifications), total, nil
 }
 
-// GetDocumentVerifications retrieves verification records for a document
-func (s *VerificationService) GetDocumentVerifications(documentID uuid.UUID) ([]*model.Verification, error) {
-	return s.verificationRepo.GetByDocumentID(documentID)
-}
-
-// UpdateVerificationStatus updates an existing verification record
-func (s *VerificationService) UpdateVerificationStatus(id uuid.UUID, status model.VerificationStatus, verifierID uuid.UUID, notes string) error {
-	verification, err := s.verificationRepo.GetByID(id)
+// UpdateVerificationStatus updates the status of a verification
+func (s *VerificationService) UpdateVerificationStatus(ctx context.Context, id uuid.UUID, status domain.VerificationStatus, confidenceScore float64, notes string) error {
+	// Get existing verification
+	verification, err := s.verRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	verification.Status = status
-	verification.VerifierID = verifierID
+	// Update verification
+	verification.Status = model.VerificationStatus(status)
+	verification.ConfidenceScore = confidenceScore
 	verification.Notes = notes
 	verification.UpdatedAt = time.Now()
 
-	if status == model.VerificationStatusCompleted {
+	if status == domain.VerStatusCompleted || status == domain.VerStatusApproved {
 		now := time.Now()
 		verification.CompletedAt = &now
 	}
 
-	err = s.verificationRepo.Update(verification)
+	// Save verification
+	if err := s.verRepo.Update(ctx, verification); err != nil {
+		return fmt.Errorf("failed to update verification: %w", err)
+	}
+
+	// If document verification, update document status
+	if verification.DocumentID != nil && (status == domain.VerStatusApproved || status == domain.VerStatusRejected) {
+		var docStatus model.DocumentStatus
+		if status == domain.VerStatusApproved {
+			docStatus = model.DocumentStatusVerified
+		} else {
+			docStatus = model.DocumentStatusRejected
+		}
+
+		if err := s.docRepo.UpdateStatus(ctx, *verification.DocumentID, docStatus, notes, id); err != nil {
+			return fmt.Errorf("failed to update document status: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// CreateVerificationResult creates a result for a verification
+func (s *VerificationService) CreateVerificationResult(ctx context.Context, verificationID uuid.UUID, result *domain.VerificationResult) error {
+	// Check if verification exists
+	verification, err := s.verRepo.GetByID(ctx, verificationID)
 	if err != nil {
 		return err
 	}
 
-	// Add history entry
-	historyEntry := &model.VerificationHistory{
-		VerificationID: id,
-		Status:         status,
-		Notes:          notes,
-		CreatedBy:      verifierID,
-		CreatedAt:      time.Now(),
+	// Create model result
+	modelResult := mapper.VerificationResultDomainToModel(result)
+	modelResult.VerificationID = verificationID
+	modelResult.ID = uuid.New()
+	modelResult.CreatedAt = time.Now()
+	modelResult.UpdatedAt = time.Now()
+
+	// Save result
+	if err := s.verRepo.CreateResult(ctx, modelResult); err != nil {
+		return fmt.Errorf("failed to create verification result: %w", err)
 	}
 
-	return s.verificationRepo.AddHistoryEntry(historyEntry)
-}
-
-// DeleteVerification soft deletes a verification record
-func (s *VerificationService) DeleteVerification(id uuid.UUID) error {
-	return s.verificationRepo.Delete(id)
-}
-
-// GetVerificationHistory retrieves the complete verification history for a document
-func (s *VerificationService) GetVerificationHistory(id uuid.UUID) ([]*model.VerificationHistory, error) {
-	return s.verificationRepo.GetHistory(id)
-}
-
-// GetVerificationStats retrieves statistics about verifications
-func (s *VerificationService) GetVerificationStats() (*model.VerificationStats, error) {
-	return s.verificationRepo.GetStats()
-}
-
-// GetVerificationSummary retrieves a summary of verifications for a document
-func (s *VerificationService) GetVerificationSummary(documentID uuid.UUID) (*model.VerificationSummary, error) {
-	return s.verificationRepo.GetSummary(documentID)
-}
-
-// GetExpiredVerifications retrieves expired verifications
-func (s *VerificationService) GetExpiredVerifications() ([]*model.Verification, error) {
-	return s.verificationRepo.GetExpired()
-}
-
-// GetPendingVerifications retrieves pending verifications
-func (s *VerificationService) GetPendingVerifications() ([]*model.Verification, error) {
-	return s.verificationRepo.GetPending()
-}
-
-// GetFailedVerifications retrieves failed verifications
-func (s *VerificationService) GetFailedVerifications() ([]*model.Verification, error) {
-	return s.verificationRepo.GetFailed()
-}
-
-// GetVerificationsByVerifier retrieves verifications by verifier
-func (s *VerificationService) GetVerificationsByVerifier(verifierID uuid.UUID, page, pageSize int) ([]*model.Verification, int64, error) {
-	return s.verificationRepo.GetByVerifier(verifierID, page, pageSize)
-}
-
-// GetVerificationsByMethod retrieves verifications by method
-func (s *VerificationService) GetVerificationsByMethod(method model.VerificationMethod, page, pageSize int) ([]*model.Verification, int64, error) {
-	return s.verificationRepo.GetByMethod(method, page, pageSize)
-}
-
-// GetVerificationsByDateRange retrieves verifications by date range
-func (s *VerificationService) GetVerificationsByDateRange(startDate, endDate time.Time, page, pageSize int) ([]*model.Verification, int64, error) {
-	return s.verificationRepo.GetByDateRange(startDate, endDate, page, pageSize)
-}
-
-// UpdateConfidenceScore updates the confidence score of a verification
-func (s *VerificationService) UpdateConfidenceScore(id uuid.UUID, score float64) error {
-	verification, err := s.verificationRepo.GetByID(id)
-	if err != nil {
-		return err
+	// Update verification status based on result
+	var status model.VerificationStatus
+	if result.Success {
+		status = model.VerificationStatusApproved
+	} else {
+		status = model.VerificationStatusRejected
 	}
 
-	verification.ConfidenceScore = score
+	verification.Status = status
+	verification.ConfidenceScore = result.Score
 	verification.UpdatedAt = time.Now()
+	now := time.Now()
+	verification.CompletedAt = &now
 
-	return s.verificationRepo.Update(verification)
-}
-
-// UpdateVerificationMetadata updates the metadata of a verification
-func (s *VerificationService) UpdateVerificationMetadata(id uuid.UUID, metadata map[string]interface{}) error {
-	verification, err := s.verificationRepo.GetByID(id)
-	if err != nil {
-		return err
+	// Save verification
+	if err := s.verRepo.Update(ctx, verification); err != nil {
+		return fmt.Errorf("failed to update verification: %w", err)
 	}
 
-	verification.Metadata = metadata
-	verification.UpdatedAt = time.Now()
+	return nil
+}
 
-	return s.verificationRepo.Update(verification)
+// GetVerificationsByDocument retrieves verifications for a document
+func (s *VerificationService) GetVerificationsByDocument(ctx context.Context, documentID uuid.UUID) ([]*domain.EnhancedVerification, error) {
+	verifications, err := s.verRepo.GetByDocumentID(ctx, documentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapper.VerificationModelsToDomains(verifications), nil
+}
+
+// GetVerificationsByKYC retrieves verifications for a KYC record
+func (s *VerificationService) GetVerificationsByKYC(ctx context.Context, kycID uuid.UUID) ([]*domain.EnhancedVerification, error) {
+	verifications, err := s.verRepo.GetByKYCID(ctx, kycID)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapper.VerificationModelsToDomains(verifications), nil
 }
 
 // ValidateVerification validates verification details
-func (s *VerificationService) ValidateVerification(data *model.VerificationDetails) error {
-	if data.DocumentID == uuid.Nil {
-		return fmt.Errorf("document ID is required")
+func (s *VerificationService) ValidateVerification(data *domain.EnhancedVerification) error {
+	if data.ID == uuid.Nil {
+		return errors.New("verification ID is required")
 	}
-	if data.VerifiedBy == uuid.Nil {
-		return fmt.Errorf("verifier ID is required")
+
+	if data.DocumentID == nil && data.KYCID == nil {
+		return errors.New("either document ID or KYC ID is required")
 	}
-	if data.VerificationMethod == "" {
-		return fmt.Errorf("verification method is required")
+
+	if data.Type == "" {
+		return errors.New("verification type is required")
 	}
-	if data.ConfidenceScore < 0 || data.ConfidenceScore > 1 {
-		return fmt.Errorf("confidence score must be between 0 and 1")
+
+	if data.Method == "" {
+		return errors.New("verification method is required")
 	}
 
 	return nil

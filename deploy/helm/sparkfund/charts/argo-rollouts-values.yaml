@@ -1,0 +1,59 @@
+# Argo Rollouts Helm chart values for SparkFund
+controller:
+  # Controller configuration
+  replicas: 1
+  
+  # Controller resources
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  # Controller metrics
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  
+  # Controller pod annotations
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8090"
+    prometheus.io/path: "/metrics"
+
+dashboard:
+  # Dashboard configuration
+  enabled: true
+  
+  # Dashboard service
+  service:
+    type: ClusterIP
+  
+  # Dashboard ingress
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: rollouts.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: rollouts-tls
+        hosts:
+          - rollouts.sparkfund.com
+  
+  # Dashboard resources
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi

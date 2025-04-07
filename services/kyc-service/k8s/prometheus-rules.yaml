@@ -1,45 +1,78 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kyc-service-rules
+  name: kyc-service
+  namespace: sparkfund
   labels:
-    release: prometheus
+    app: kyc-service
+    prometheus: k8s
+    role: alert-rules
 spec:
   groups:
-  - name: kyc-service
+  - name: kyc-service.rules
     rules:
     - alert: KYCServiceHighErrorRate
-      expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.1
+      expr: sum(rate(http_requests_total{app="kyc-service",status=~"5.."}[5m])) / sum(rate(http_requests_total{app="kyc-service"}[5m])) > 0.05
       for: 5m
       labels:
         severity: critical
+        team: kyc
       annotations:
-        summary: High error rate detected
-        description: "KYC service is experiencing high error rate: {{ $value | humanizePercentage }}"
-
+        summary: "High error rate in KYC Service"
+        description: "KYC Service has a high error rate (> 5%) for the past 5 minutes."
+        runbook_url: "https://github.com/adil-faiyaz98/sparkfund/wiki/KYC-Service-Runbook#high-error-rate"
+        
     - alert: KYCServiceHighLatency
-      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+      expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="kyc-service"}[5m])) by (le)) > 1
       for: 5m
       labels:
         severity: warning
+        team: kyc
       annotations:
-        summary: High latency detected
-        description: "95th percentile latency is above 1s: {{ $value }}s"
-
+        summary: "High latency in KYC Service"
+        description: "KYC Service has a 95th percentile latency of more than 1 second for the past 5 minutes."
+        runbook_url: "https://github.com/adil-faiyaz98/sparkfund/wiki/KYC-Service-Runbook#high-latency"
+        
     - alert: KYCServiceHighCPUUsage
-      expr: container_cpu_usage_seconds_total{container="kyc-service"} > 0.8
+      expr: sum(rate(container_cpu_usage_seconds_total{container="kyc-service"}[5m])) / sum(kube_pod_container_resource_limits_cpu_cores{container="kyc-service"}) > 0.8
       for: 5m
       labels:
         severity: warning
+        team: kyc
       annotations:
-        summary: High CPU usage
-        description: "CPU usage is above 80%: {{ $value | humanizePercentage }}"
-
+        summary: "High CPU usage in KYC Service"
+        description: "KYC Service is using more than 80% of its CPU limit for the past 5 minutes."
+        runbook_url: "https://github.com/adil-faiyaz98/sparkfund/wiki/KYC-Service-Runbook#high-cpu-usage"
+        
     - alert: KYCServiceHighMemoryUsage
-      expr: container_memory_usage_bytes{container="kyc-service"} / container_spec_memory_limit_bytes{container="kyc-service"} > 0.8
+      expr: sum(container_memory_usage_bytes{container="kyc-service"}) / sum(kube_pod_container_resource_limits_memory_bytes{container="kyc-service"}) > 0.8
       for: 5m
       labels:
         severity: warning
+        team: kyc
       annotations:
-        summary: High memory usage
-        description: "Memory usage is above 80%: {{ $value | humanizePercentage }}" 
+        summary: "High memory usage in KYC Service"
+        description: "KYC Service is using more than 80% of its memory limit for the past 5 minutes."
+        runbook_url: "https://github.com/adil-faiyaz98/sparkfund/wiki/KYC-Service-Runbook#high-memory-usage"
+        
+    - alert: KYCServiceDown
+      expr: up{app="kyc-service"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        team: kyc
+      annotations:
+        summary: "KYC Service is down"
+        description: "KYC Service has been down for more than 1 minute."
+        runbook_url: "https://github.com/adil-faiyaz98/sparkfund/wiki/KYC-Service-Runbook#service-down"
+        
+    - alert: KYCServiceCircuitBreakerOpen
+      expr: circuit_breaker_state{app="kyc-service",state="open"} > 0
+      for: 1m
+      labels:
+        severity: warning
+        team: kyc
+      annotations:
+        summary: "Circuit breaker open in KYC Service"
+        description: "Circuit breaker is open in KYC Service for more than 1 minute."
+        runbook_url: "https://github.com/adil-faiyaz98/sparkfund/wiki/KYC-Service-Runbook#circuit-breaker-open"

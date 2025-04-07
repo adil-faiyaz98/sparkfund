@@ -1,7 +1,10 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: kyc-service-hpa
+  name: kyc-service
+  namespace: sparkfund
+  labels:
+    app: kyc-service
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -23,15 +26,19 @@ spec:
         type: Utilization
         averageUtilization: 80
   behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-      - type: Percent
-        value: 100
-        periodSeconds: 15
     scaleDown:
       stabilizationWindowSeconds: 300
       policies:
       - type: Percent
-        value: 50
-        periodSeconds: 15 
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 4
+        periodSeconds: 60
+      selectPolicy: Max

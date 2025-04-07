@@ -1,0 +1,46 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: api-gateway-cert
+  namespace: sparkfund
+spec:
+  secretName: api-gateway-tls
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  subject:
+    organizations:
+      - SparkFund
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - api-gateway
+    - api-gateway.sparkfund
+    - api-gateway.sparkfund.svc
+    - api-gateway.sparkfund.svc.cluster.local
+    - api.sparkfund.com
+  issuerRef:
+    name: sparkfund-issuer
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: sparkfund-issuer
+spec:
+  selfSigned: {}
+  # For production, use ACME (Let's Encrypt) or a commercial CA
+  # acme:
+  #   server: https://acme-v02.api.letsencrypt.org/directory
+  #   email: admin@sparkfund.com
+  #   privateKeySecretRef:
+  #     name: letsencrypt-account-key
+  #   solvers:
+  #   - http01:
+  #       ingress:
+  #         class: nginx

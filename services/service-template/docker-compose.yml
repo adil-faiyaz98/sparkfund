@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  service-template:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: service-template
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      - APP_ENV=production
+      - APP_DATABASE_HOST=postgres
+      - APP_DATABASE_PORT=5432
+      - APP_DATABASE_USER=postgres
+      - APP_DATABASE_PASSWORD=postgres
+      - APP_DATABASE_NAME=service_template
+      - APP_DATABASE_SSLMODE=disable
+      - APP_JWT_SECRET=your-secret-key
+      - APP_CACHE_ENABLED=true
+      - APP_CACHE_TYPE=redis
+      - APP_CACHE_REDIS_HOST=redis
+      - APP_CACHE_REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - service-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: service-template-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=service_template
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - service-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: service-template-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - service-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  service-network:
+    driver: bridge

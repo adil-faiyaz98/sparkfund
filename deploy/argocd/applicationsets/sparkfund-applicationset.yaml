@@ -1,0 +1,83 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: sparkfund
+  namespace: argocd
+spec:
+  generators:
+    # Generate applications for each environment
+    - matrix:
+        generators:
+          - git:
+              repoURL: https://github.com/adil-faiyaz98/sparkfund.git
+              revision: HEAD
+              directories:
+                - path: deploy/helm/sparkfund
+          - list:
+              elements:
+                - environment: dev
+                  valueFiles:
+                    - values.yaml
+                    - values-dev.yaml
+                - environment: staging
+                  valueFiles:
+                    - values.yaml
+                    - values-staging.yaml
+                - environment: prod
+                  valueFiles:
+                    - values.yaml
+                    - values-prod.yaml
+  
+  template:
+    metadata:
+      name: sparkfund-{{environment}}
+      namespace: argocd
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: sparkfund
+      
+      source:
+        repoURL: https://github.com/adil-faiyaz98/sparkfund.git
+        targetRevision: HEAD
+        path: deploy/helm/sparkfund
+        helm:
+          valueFiles:
+          {{- range .valueFiles }}
+            - {{ . }}
+          {{- end }}
+          values: |
+            global:
+              environment: {{environment}}
+      
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: sparkfund-{{environment}}
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+      
+      # Health checks
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas
+        - group: autoscaling
+          kind: HorizontalPodAutoscaler
+          jsonPointers:
+            - /spec/metrics

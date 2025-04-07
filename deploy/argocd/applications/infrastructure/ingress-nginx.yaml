@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ingress-nginx
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: sparkfund
+  
+  source:
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    targetRevision: 4.7.1
+    chart: ingress-nginx
+    helm:
+      values: |
+        controller:
+          config:
+            use-forwarded-headers: "true"
+            proxy-body-size: "10m"
+            proxy-read-timeout: "300"
+            proxy-send-timeout: "300"
+            proxy-connect-timeout: "300"
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ingress-nginx
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

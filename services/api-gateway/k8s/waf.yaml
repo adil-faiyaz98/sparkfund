@@ -1,0 +1,98 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-gateway-ingress
+  namespace: sparkfund
+  annotations:
+    kubernetes.io/ingress.class: "alb"
+    alb.ingress.kubernetes.io/scheme: "internet-facing"
+    alb.ingress.kubernetes.io/target-type: "ip"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # WAF integration
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "${WAF_ACL_ARN}"
+    # Security headers
+    alb.ingress.kubernetes.io/load-balancer-attributes: "routing.http.drop_invalid_header_fields.enabled=true"
+    # SSL policy
+    alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-2-2017-01"
+spec:
+  tls:
+  - hosts:
+    - api.sparkfund.com
+    secretName: api-gateway-tls
+  rules:
+  - host: api.sparkfund.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 80
+---
+apiVersion: wafv2.aws.crossplane.io/v1alpha1
+kind: WebACL
+metadata:
+  name: sparkfund-api-waf
+  namespace: sparkfund
+spec:
+  forProvider:
+    region: us-east-1
+    scope: REGIONAL
+    defaultAction:
+      allow: {}
+    visibilityConfig:
+      cloudWatchMetricsEnabled: true
+      metricName: sparkfund-api-waf
+      sampledRequestsEnabled: true
+    rules:
+      - name: AWSManagedRulesCommonRuleSet
+        priority: 0
+        overrideAction:
+          none: {}
+        statement:
+          managedRuleGroupStatement:
+            name: AWSManagedRulesCommonRuleSet
+            vendorName: AWS
+        visibilityConfig:
+          cloudWatchMetricsEnabled: true
+          metricName: AWSManagedRulesCommonRuleSet
+          sampledRequestsEnabled: true
+      - name: AWSManagedRulesKnownBadInputsRuleSet
+        priority: 1
+        overrideAction:
+          none: {}
+        statement:
+          managedRuleGroupStatement:
+            name: AWSManagedRulesKnownBadInputsRuleSet
+            vendorName: AWS
+        visibilityConfig:
+          cloudWatchMetricsEnabled: true
+          metricName: AWSManagedRulesKnownBadInputsRuleSet
+          sampledRequestsEnabled: true
+      - name: AWSManagedRulesSQLiRuleSet
+        priority: 2
+        overrideAction:
+          none: {}
+        statement:
+          managedRuleGroupStatement:
+            name: AWSManagedRulesSQLiRuleSet
+            vendorName: AWS
+        visibilityConfig:
+          cloudWatchMetricsEnabled: true
+          metricName: AWSManagedRulesSQLiRuleSet
+          sampledRequestsEnabled: true
+      - name: RateLimitRule
+        priority: 3
+        action:
+          block: {}
+        statement:
+          rateBasedStatement:
+            limit: 1000
+            aggregateKeyType: IP
+        visibilityConfig:
+          cloudWatchMetricsEnabled: true
+          metricName: RateLimitRule
+          sampledRequestsEnabled: true

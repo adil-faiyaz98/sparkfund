@@ -1,0 +1,154 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  # Notification service configuration
+  service.slack: |
+    token: $slack-token
+    username: ArgoCD
+    icon: https://argocd-notifications.readthedocs.io/en/stable/assets/logo.png
+
+  # Notification templates
+  template.app-deployed: |
+    message: |
+      :white_check_mark: Application {{.app.metadata.name}} has been successfully deployed to {{.app.spec.destination.namespace}}.
+      Revision: {{.app.status.sync.revision}}
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link":"{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#18be52",
+          "fields": [
+          {
+            "title": "Sync Status",
+            "value": "{{.app.status.sync.status}}",
+            "short": true
+          },
+          {
+            "title": "Repository",
+            "value": "{{.app.spec.source.repoURL}}",
+            "short": true
+          },
+          {
+            "title": "Revision",
+            "value": "{{.app.status.sync.revision}}",
+            "short": true
+          },
+          {
+            "title": "Namespace",
+            "value": "{{.app.spec.destination.namespace}}",
+            "short": true
+          }
+          ]
+        }]
+
+  template.app-sync-failed: |
+    message: |
+      :x: Failed to sync application {{.app.metadata.name}} to {{.app.spec.destination.namespace}}.
+      Sync operation failed: {{.app.status.operationState.message}}
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link":"{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#E96D76",
+          "fields": [
+          {
+            "title": "Sync Status",
+            "value": "{{.app.status.sync.status}}",
+            "short": true
+          },
+          {
+            "title": "Repository",
+            "value": "{{.app.spec.source.repoURL}}",
+            "short": true
+          },
+          {
+            "title": "Revision",
+            "value": "{{.app.status.sync.revision}}",
+            "short": true
+          },
+          {
+            "title": "Namespace",
+            "value": "{{.app.spec.destination.namespace}}",
+            "short": true
+          },
+          {
+            "title": "Error Message",
+            "value": "{{.app.status.operationState.message}}",
+            "short": false
+          }
+          ]
+        }]
+
+  template.app-health-degraded: |
+    message: |
+      :warning: Application {{.app.metadata.name}} health status is now {{.app.status.health.status}}.
+      {{if eq .app.status.health.status "Degraded"}}
+      Application is not healthy: {{.app.status.health.message}}
+      {{end}}
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link":"{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#f4c030",
+          "fields": [
+          {
+            "title": "Health Status",
+            "value": "{{.app.status.health.status}}",
+            "short": true
+          },
+          {
+            "title": "Sync Status",
+            "value": "{{.app.status.sync.status}}",
+            "short": true
+          },
+          {
+            "title": "Repository",
+            "value": "{{.app.spec.source.repoURL}}",
+            "short": true
+          },
+          {
+            "title": "Namespace",
+            "value": "{{.app.spec.destination.namespace}}",
+            "short": true
+          },
+          {
+            "title": "Health Message",
+            "value": "{{.app.status.health.message}}",
+            "short": false
+          }
+          ]
+        }]
+
+  # Trigger definitions
+  trigger.on-deployed: |
+    - description: Application is synced and healthy
+      oncePer: app.status.sync.revision
+      send: [app-deployed]
+      when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy' and app.status.sync.status == 'Synced'
+
+  trigger.on-sync-failed: |
+    - description: Application syncing has failed
+      oncePer: app.status.operationState.syncResult.revision
+      send: [app-sync-failed]
+      when: app.status.operationState.phase in ['Error', 'Failed']
+
+  trigger.on-health-degraded: |
+    - description: Application has degraded
+      oncePer: app.status.health.status
+      send: [app-health-degraded]
+      when: app.status.health.status == 'Degraded'
+
+  # Default subscriptions
+  subscriptions: |
+    - recipients:
+      - slack:sparkfund-dev
+      triggers:
+      - on-deployed
+      - on-sync-failed
+      - on-health-degraded

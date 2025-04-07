@@ -1,0 +1,200 @@
+# Service Name
+
+Brief description of the service and its purpose in the SparkFund platform.
+
+## Architecture
+
+Describe the service architecture, including:
+- Key components
+- Dependencies
+- Data flow
+
+## API Documentation
+
+The service provides a RESTful API with the following endpoints:
+
+### Endpoint 1
+
+- **URL**: `/api/v1/resource`
+- **Method**: `GET`
+- **Description**: Description of the endpoint
+- **Request Parameters**:
+  - `param1` (string, required): Description of parameter
+  - `param2` (integer, optional): Description of parameter
+- **Response**:
+  ```json
+  {
+    "id": "123",
+    "name": "Example",
+    "created_at": "2023-01-01T12:00:00Z"
+  }
+  ```
+- **Status Codes**:
+  - `200 OK`: Success
+  - `400 Bad Request`: Invalid parameters
+  - `401 Unauthorized`: Authentication required
+  - `403 Forbidden`: Insufficient permissions
+  - `404 Not Found`: Resource not found
+  - `500 Internal Server Error`: Server error
+
+### Swagger Documentation
+
+Swagger documentation is available at `/swagger/index.html` when the service is running.
+
+## Configuration
+
+The service can be configured using environment variables or a configuration file.
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `APP_ENV` | Application environment | `development` |
+| `APP_PORT` | HTTP server port | `8080` |
+| `DB_HOST` | Database host | `localhost` |
+| `DB_PORT` | Database port | `5432` |
+| `DB_USER` | Database user | `postgres` |
+| `DB_PASSWORD` | Database password | `postgres` |
+| `DB_NAME` | Database name | `service_name` |
+| `LOG_LEVEL` | Logging level | `info` |
+| `LOG_FORMAT` | Logging format | `json` |
+
+### Configuration File
+
+The service can also be configured using a YAML file located at `config/config.yaml`:
+
+```yaml
+app:
+  env: development
+  port: 8080
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  name: service_name
+
+log:
+  level: info
+  format: json
+```
+
+## Development
+
+### Prerequisites
+
+- Go 1.21 or later
+- Docker and Docker Compose
+- PostgreSQL
+- Redis (if applicable)
+
+### Setup
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/adil-faiyaz98/sparkfund.git
+cd sparkfund/services/service-name
+```
+
+2. Install dependencies:
+
+```bash
+go mod download
+```
+
+3. Run the service:
+
+```bash
+go run cmd/main.go
+```
+
+### Using Docker
+
+```bash
+# Build the Docker image
+docker build -t service-name .
+
+# Run the container
+docker run -p 8080:8080 service-name
+```
+
+### Using Docker Compose
+
+```bash
+# Start the service and dependencies
+docker-compose up -d
+
+# Stop the service
+docker-compose down
+```
+
+## Testing
+
+### Running Tests
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+```
+
+## Deployment
+
+### Kubernetes
+
+The service can be deployed to Kubernetes using the provided manifests:
+
+```bash
+kubectl apply -f k8s/
+```
+
+### CI/CD
+
+The service is automatically built, tested, and deployed using GitHub Actions. See `.github/workflows/service-name.yml` for details.
+
+## Monitoring
+
+The service exposes metrics for Prometheus at `/metrics` and includes the following dashboards:
+
+- Service Overview
+- Request Latency
+- Error Rates
+- Resource Usage
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Database Connection Errors**
+   - Check database credentials
+   - Verify network connectivity
+   - Ensure database is running
+
+2. **High Latency**
+   - Check database query performance
+   - Verify resource allocation
+   - Check for network issues
+
+### Logs
+
+Logs are written to stdout/stderr in JSON format and can be viewed using:
+
+```bash
+# Docker
+docker logs service-name
+
+# Kubernetes
+kubectl logs deployment/service-name
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

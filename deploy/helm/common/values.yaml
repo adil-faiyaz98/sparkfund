@@ -1,0 +1,339 @@
+# Default values for common chart
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Rollout configuration
+rollout:
+  enabled: false
+  revisionHistoryLimit: 5
+  strategy:
+    type: Canary  # Canary or BlueGreen
+    canary:
+      initialWeight: 20
+      initialPause: 5m
+      secondWeight: 40
+      secondPause: 5m
+      thirdWeight: 60
+      thirdPause: 5m
+      finalWeight: 80
+      finalPause: 5m
+    blueGreen:
+      autoPromotionEnabled: false
+      autoPromotionSeconds: 600
+      scaleDownDelaySeconds: 600
+  analysis:
+    latencyThreshold: 1
+    errorRateThreshold: 0.05
+    loadTest:
+      enabled: false
+      users: 10
+      duration: 60s
+      rate: 5
+
+# Vault integration
+vault:
+  enabled: true
+  agentImage: hashicorp/vault:1.13.3
+  address: http://vault.vault:8200
+  transit:
+    enabled: false
+    key: ""
+  pki:
+    enabled: false
+
+# Istio integration
+istio:
+  enabled: true
+  # Virtual Service configuration
+  virtualService:
+    enabled: false
+    hosts: []
+    gateways: []
+    match:
+      - type: prefix
+        value: "/"
+    timeout: "30s"
+    retries:
+      attempts: 3
+      perTryTimeout: "2s"
+      retryOn: "gateway-error,connect-failure,refused-stream"
+    corsPolicy:
+      allowOrigins: ["*"]
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      allowHeaders: ["Authorization", "Content-Type"]
+      maxAge: "24h"
+  # Destination Rule configuration
+  destinationRule:
+    enabled: false
+    trafficPolicy:
+      tls:
+        mode: ISTIO_MUTUAL
+      loadBalancer:
+        simple: ROUND_ROBIN
+      connectionPool:
+        tcp:
+          maxConnections: 100
+          connectTimeout: "30ms"
+        http:
+          http1MaxPendingRequests: 1024
+          http2MaxRequests: 1024
+          maxRequestsPerConnection: 10
+          maxRetries: 3
+      outlierDetection:
+        consecutiveErrors: 5
+        interval: "30s"
+        baseEjectionTime: "30s"
+        maxEjectionPercent: 100
+  # Peer Authentication configuration
+  peerAuthentication:
+    enabled: false
+    mtls:
+      mode: STRICT
+  # Gateway configuration
+  gateway:
+    enabled: false
+    servers:
+      - port:
+          number: 80
+          name: http
+          protocol: HTTP
+        hosts:
+          - "*"
+      - port:
+          number: 443
+          name: https
+          protocol: HTTPS
+        hosts:
+          - "*"
+        tls:
+          mode: SIMPLE
+          credentialName: "tls-credential"
+
+replicaCount: 3
+
+image:
+  repository: ghcr.io/adil-faiyaz98/sparkfund/service
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/rate-limit: "10r/s"
+    nginx.ingress.kubernetes.io/rate-limit-burst: "20"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: chart-example-tls
+      hosts:
+        - chart-example.local
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+  # customMetrics:
+  # - type: Pods
+  #   pods:
+  #     metric:
+  #       name: http_requests_per_second
+  #     target:
+  #       type: AverageValue
+  #       averageValue: 1k
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+  # maxUnavailable: 1
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+env:
+  environment: production
+  logLevel: info
+  logFormat: json
+
+metrics:
+  enabled: true
+  port: 8080
+  path: /metrics
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+    scrapeTimeout: "10s"
+    additionalLabels: {}
+    relabelings: []
+    metricRelabelings: []
+  prometheusRules:
+    enabled: true
+    additionalLabels: {}
+    errorRateThreshold: 0.05
+    latencyThreshold: 1
+    cpuThreshold: 0.8
+    memoryThreshold: 0.8
+    restartThreshold: 3
+    customRules: []
+
+tracing:
+  enabled: true
+  provider: jaeger  # jaeger, zipkin, otlp
+  endpoint: http://tempo.monitoring:14268/api/traces
+  samplingRate: "0.1"
+  serviceName: ""
+  environment: ""
+  propagation: "w3c"  # w3c, b3, jaeger
+  zipkin:
+    endpoint: http://tempo.monitoring:9411/api/v2/spans
+  otlp:
+    endpoint: tempo.monitoring:4317
+    insecure: true
+    timeout: 10s
+
+database:
+  enabled: true
+  sslMode: require
+
+cache:
+  enabled: true
+  type: redis
+
+jwt:
+  enabled: true
+  expiry: 24h
+
+config:
+  enabled: false
+  data: {}
+
+secret:
+  enabled: false
+  data: {}
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+deployment:
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+networkPolicy:
+  enabled: true
+  allowSameNamespace: false
+  allowExternal: false
+  additionalAllowedServices: []
+  additionalAllowedEgress: []
+  ingress:
+    from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: api-gateway
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+        podSelector:
+          matchLabels:
+            app: prometheus
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 5432  # PostgreSQL
+        - protocol: TCP
+          port: 6379  # Redis
+        - protocol: TCP
+          port: 9411  # Zipkin
+        - protocol: TCP
+          port: 14268 # Jaeger
+
+resourceQuota:
+  enabled: false
+  pods: "20"
+  requests:
+    cpu: "4"
+    memory: 8Gi
+  limits:
+    cpu: "8"
+    memory: 16Gi
+  persistentVolumeClaims: "10"
+  services: "10"
+  servicesLoadBalancers: "2"
+  servicesNodePorts: "0"
+  configMaps: "20"
+  secrets: "20"
+
+limitRange:
+  enabled: false
+  default:
+    cpu: 500m
+    memory: 512Mi
+  defaultRequest:
+    cpu: 100m
+    memory: 128Mi
+  max:
+    cpu: 2000m
+    memory: 2Gi
+  min:
+    cpu: 50m
+    memory: 64Mi
+
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []

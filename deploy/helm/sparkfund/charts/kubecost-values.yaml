@@ -1,0 +1,162 @@
+# Kubecost Helm chart values for SparkFund
+global:
+  # Prometheus configuration
+  prometheus:
+    enabled: false  # We already have Prometheus installed
+    fqdn: http://prometheus-server.monitoring:80
+  
+  # Grafana configuration
+  grafana:
+    enabled: false  # We already have Grafana installed
+    proxy: false
+    fqdn: http://grafana.monitoring:80
+  
+  # Node configuration
+  node:
+    selector: {}
+  
+  # Persistence configuration
+  persistentVolume:
+    enabled: true
+    storageClass: standard
+    size: 32Gi
+
+# Kubecost configuration
+kubecostModel:
+  # Resources for the Kubecost model
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  
+  # Warmup period for the Kubecost model
+  warmupPeriod: 2h
+
+# Kubecost frontend configuration
+kubecostFrontend:
+  # Resources for the Kubecost frontend
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Service configuration for the Kubecost frontend
+  service:
+    type: ClusterIP
+  
+  # Ingress configuration for the Kubecost frontend
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: kubecost.sparkfund.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: kubecost-tls
+        hosts:
+          - kubecost.sparkfund.com
+
+# Prometheus configuration
+prometheus:
+  # Disable Prometheus installation
+  server:
+    enabled: false
+  
+  # Disable Prometheus alertmanager
+  alertmanager:
+    enabled: false
+  
+  # Disable Prometheus pushgateway
+  pushgateway:
+    enabled: false
+  
+  # Disable Prometheus node exporter
+  nodeExporter:
+    enabled: false
+  
+  # Disable Prometheus kube-state-metrics
+  kubeStateMetrics:
+    enabled: false
+
+# Grafana configuration
+grafana:
+  # Disable Grafana installation
+  enabled: false
+
+# NetworkCosts configuration
+networkCosts:
+  # Enable NetworkCosts
+  enabled: true
+  
+  # Resources for NetworkCosts
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ServiceMonitor configuration
+serviceMonitor:
+  # Enable ServiceMonitor
+  enabled: true
+
+# Kubecost Savings configuration
+kubecostSavings:
+  # Enable Kubecost Savings
+  enabled: true
+  
+  # Resources for Kubecost Savings
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Kubecost Metrics configuration
+metrics:
+  # Enable Kubecost Metrics
+  enabled: true
+  
+  # ServiceMonitor configuration
+  serviceMonitor:
+    enabled: true
+
+# Kubecost Reporting configuration
+reporting:
+  # Enable Kubecost Reporting
+  enabled: true
+  
+  # Resources for Kubecost Reporting
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Kubecost Cloud Integration configuration
+cloudIntegration:
+  # Enable Cloud Integration
+  enabled: true
+  
+  # AWS Integration
+  aws:
+    enabled: true
+    secretName: kubecost-aws-integration
+    secretKey: aws-integration-id
