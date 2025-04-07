@@ -13,7 +13,6 @@ SERVICES := api-gateway kyc-service investment-service user-service
 # Docker
 DOCKER_COMPOSE := docker-compose
 DOCKER_COMPOSE_FILE := docker-compose.yml
-DOCKER_COMPOSE_DEV_FILE := docker-compose.dev.yml
 
 # Kubernetes
 KUBECTL := kubectl
@@ -35,28 +34,28 @@ tools:
 # Development
 .PHONY: dev
 dev:
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_DEV_FILE) up -d
+	$(DOCKER_COMPOSE) up -d
 
 .PHONY: dev-down
 dev-down:
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_DEV_FILE) down
+	$(DOCKER_COMPOSE) down
 
 .PHONY: dev-logs
 dev-logs:
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_DEV_FILE) logs -f
+	$(DOCKER_COMPOSE) logs -f
 
 # Production
 .PHONY: prod
 prod:
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) up -d
+	$(DOCKER_COMPOSE) up -d
 
 .PHONY: prod-down
 prod-down:
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) down
+	$(DOCKER_COMPOSE) down
 
 .PHONY: prod-logs
 prod-logs:
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) logs -f
+	$(DOCKER_COMPOSE) logs -f
 
 # Testing
 .PHONY: test

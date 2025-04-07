@@ -336,13 +336,13 @@ jobs:
         with:
           payload: |
             {
-              "text": "✅ KYC Service image built and pushed successfully",
+              "text": "KYC Service image built and pushed successfully",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "✅ *KYC Service image built and pushed successfully*\n*Repository:* ${{ github.repository }}\n*Commit:* ${{ github.sha }}\n*Image:* ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+                    "text": "*KYC Service image built and pushed successfully*\n*Repository:* ${{ github.repository }}\n*Commit:* ${{ github.sha }}\n*Image:* ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
                   }
                 },
                 {

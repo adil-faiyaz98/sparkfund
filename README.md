@@ -37,10 +37,6 @@ SparkFund is a comprehensive financial platform with AI-powered investment recom
 
 SparkFund follows a microservices architecture with the following components:
 
-<p align="center">
-  <img src="https://via.placeholder.com/800x400?text=SparkFund+Architecture" alt="SparkFund Architecture" width="800">
-</p>
-
 1. **API Gateway**: Routes requests to appropriate services, handles authentication, and rate limiting
 2. **KYC Service**: Handles customer verification and onboarding with AI-powered document verification
 3. **Investment Service**: Manages investments and provides AI-powered recommendations
@@ -48,7 +44,7 @@ SparkFund follows a microservices architecture with the following components:
 5. **AI Service**: Provides AI capabilities for document verification, facial recognition, and investment analysis
 6. **Supporting Infrastructure**: PostgreSQL, Redis, Prometheus, Grafana, and Jaeger
 
-## 🚀 Services
+## Services
 
 | Service            | Description                                                                                                |
 | ------------------ | ---------------------------------------------------------------------------------------------------------- |
@@ -58,7 +54,7 @@ SparkFund follows a microservices architecture with the following components:
 | User Service       | Manages user accounts, authentication, profiles, and permissions                                           |
 | AI Service         | Provides AI capabilities for document verification, facial recognition, NLP, and investment analysis       |
 
-## 🚦 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -68,7 +64,7 @@ SparkFund follows a microservices architecture with the following components:
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/sparkfund.git
+git clone https://github.com/adil-faiyaz98/sparkfund.git
 cd sparkfund
 ```
 
@@ -164,7 +160,7 @@ All services have comprehensive Swagger documentation. You can access the intera
 - `POST /api/v1/image/classify` - Classify images using computer vision
 - `POST /api/v1/text/analyze` - Analyze text for sentiment and entities
 
-## 🧠 AI Capabilities
+## AI Capabilities
 
 SparkFund integrates advanced AI capabilities across its services:
 
@@ -188,7 +184,7 @@ SparkFund integrates advanced AI capabilities across its services:
 - **Image Classification**: Classify images for various purposes
 - **Text Analysis**: Sentiment analysis, entity extraction, and text classification
 
-## 🧪 Testing
+## Testing
 
 SparkFund includes comprehensive tests for all services:
 
@@ -207,11 +203,7 @@ go test ./services/api-gateway/...
 
 ### Test Structure
 
-Tests are organized by service and type:
-
-- **Unit Tests**: Test individual components in isolation
-- **Integration Tests**: Test interactions between components
-- **End-to-End Tests**: Test complete workflows
+-- Ignored tests for now as project is less about production readiness and more about eays to integrate AI service with API's and to make it easy to integrate AI service with other services without having HTTP calls that would increase lat
 
 ## 📊 Monitoring and Observability
 

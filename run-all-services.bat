@@ -61,13 +61,13 @@ echo       path: /var/lib/grafana/dashboards
 ) > monitoring\grafana\provisioning\dashboards\dashboard.yml
 
 echo Building and starting all services...
-docker-compose -f docker-compose-simple.yml up --build -d
+docker-compose up --build -d
 
 echo Waiting for services to start...
 timeout /t 30 /nobreak > nul
 
 echo Checking service status...
-docker-compose -f docker-compose-all.yml ps
+docker-compose ps
 
 echo ===================================================
 echo SparkFund Services:
@@ -85,5 +85,5 @@ echo Grafana:             http://localhost:3000 (admin/admin)
 echo Jaeger:              http://localhost:16686
 echo ===================================================
 
-echo To view logs, run: docker-compose -f docker-compose-all.yml logs -f
-echo To stop all services, run: docker-compose -f docker-compose-all.yml down
+echo To view logs, run: docker-compose logs -f
+echo To stop all services, run: docker-compose down
