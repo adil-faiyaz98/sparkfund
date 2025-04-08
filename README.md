@@ -445,11 +445,27 @@ docker-compose logs
 docker-compose logs [service-name]
 ```
 
+## Troubleshooting
+
+If you encounter issues:
+
+1. Check if all containers are running: `docker-compose ps`
+2. View logs for a specific service: `docker-compose logs [service-name]`
+3. Restart a specific service: `docker-compose restart [service-name]`
+4. Restart all services: `docker-compose down && docker-compose up -d`
+
+### Common Issues
+
+- **Service Unavailable**: Check if the service container is running and healthy
+- **Database Connection Issues**: Check if PostgreSQL is running and accessible
+- **Authentication Failures**: Verify the JWT token is valid and not expired
+- **API Gateway Routing Issues**: Check the Nginx configuration in the API Gateway service
+- **Kubernetes Deployment Issues**: Check pod status and events with `kubectl describe pod`
+- **Terraform Errors**: Check the Terraform state and logs for detailed error messages
+
+---
+
 ## Images
-
-### SparkFund Logo
-
-![SparkFund Logo](assets/images/sparkfund-logo.svg)
 
 ### Architecture Diagram
 
@@ -482,42 +498,24 @@ docker-compose logs [service-name]
 +----------------+--------+--------+--------+
 ```
 
-![SparkFund Architecture](assets/images/sparkfund-architecture.svg)
+### SparkFund Logo
+
+![SparkFund Logo](images/logo.svg)
 
 ### Investment Service
 
-![Investment Service](assets/images/2025-04-07 17_56_59.png)
+![Investment Service](images/investment-service.png)
 
 ### Monitoring
 
 #### Prometheus
 
-![Prometheus Dashboard](assets/images/2025-04-07 19_57_56.png)
+![Prometheus Dashboard](images/prometheus.png)
 
 #### Grafana
 
-![Grafana Dashboard](assets/images/2025-04-07 19_57_07.png)
+![Grafana Dashboard](images/grafana.png)
 
 #### Jaeger
 
-![Jaeger UI](assets/images/2025-04-07 19_57_17.png)
-
-## Troubleshooting
-
-If you encounter issues:
-
-1. Check if all containers are running: `docker-compose ps`
-2. View logs for a specific service: `docker-compose logs [service-name]`
-3. Restart a specific service: `docker-compose restart [service-name]`
-4. Restart all services: `docker-compose down && docker-compose up -d`
-
-### Common Issues
-
-- **Service Unavailable**: Check if the service container is running and healthy
-- **Database Connection Issues**: Check if PostgreSQL is running and accessible
-- **Authentication Failures**: Verify the JWT token is valid and not expired
-- **API Gateway Routing Issues**: Check the Nginx configuration in the API Gateway service
-- **Kubernetes Deployment Issues**: Check pod status and events with `kubectl describe pod`
-- **Terraform Errors**: Check the Terraform state and logs for detailed error messages
-
----
+![Jaeger UI](images/jaeger.png)
