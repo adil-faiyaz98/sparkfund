@@ -453,31 +453,58 @@ docker-compose logs [service-name]
 
 ### Architecture Diagram
 
-![SparkFund Architecture](assets/images/2025-04-07 17_56_59.png)
+```
++----------------+
+|                |
+|    Clients     |
+|                |
++-------+--------+
+        |
+        v
++-------+--------+
+|                |
+|  API Gateway   |
+|                |
++-------+--------+
+        |
+        v
++-------+--------+--------+--------+--------+
+|                |        |        |        |
+| KYC Service    |Investment|  User  |   AI   |
+|                | Service |Service |Service |
++-------+--------+--------+--------+--------+
+        |           |         |         |
+        v           v         v         v
++-------+--------+--------+--------+--------+
+|                |        |        |        |
+|  PostgreSQL    | Redis  |Prometheus|Jaeger |
+|                |        |        |        |
++----------------+--------+--------+--------+
+```
 
-### Swagger UI
+![SparkFund Architecture](assets/images/sparkfund-architecture.svg)
 
-![Swagger UI](assets/images/2025-04-07 17_56_59-Greenshot.png)
+### Investment Service
+
+![Investment Service](assets/images/2025-04-07 17_56_59.png)
 
 ### Monitoring
 
 #### Prometheus
 
-![Prometheus Dashboard](assets/images/2025-04-07 17_30_25.png)
+![Prometheus Dashboard](assets/images/2025-04-07 19_57_56.png)
 
 #### Grafana
 
-![Grafana Dashboard](assets/images/2025-04-07 17_56_54.png)
+![Grafana Dashboard](assets/images/2025-04-07 19_57_07.png)
 
 #### Jaeger
 
-![Jaeger UI](assets/images/2025-04-07 17_57_34.png)
+![Jaeger UI](assets/images/2025-04-07 19_57_17.png)
 
 ## Troubleshooting
 
 If you encounter issues:
-
-## ChatGPT for Help. Otherwise:
 
 1. Check if all containers are running: `docker-compose ps`
 2. View logs for a specific service: `docker-compose logs [service-name]`
