@@ -502,20 +502,26 @@ If you encounter issues:
 
 ![SparkFund Logo](images/logo.svg)
 
+### Swagger-Hub Web Interface
+
+![Swagger-Hub](<images/2025-04-07 17_57_34.png>)
+
 ### Investment Service
 
-![Investment Service](images/investment-service.png)
+![Investment Service](<images/2025-04-07 17_56_54.png>)
+
+![Investment Service](<images/2025-04-07 17_56_59.png>)
 
 ### Monitoring
 
 #### Prometheus
 
-![Prometheus Dashboard](images/prometheus.png)
+![Prometheus UI](<images/2025-04-07 19_57_56.png>)
 
 #### Grafana
 
-![Grafana Dashboard](images/grafana.png)
+![Grafana UI](<images/2025-04-07 19_57_07.png>)
 
 #### Jaeger
 
-![Jaeger UI](images/jaeger.png)
+![Grafana UI](<images/2025-04-07 19_57_17.png>)
